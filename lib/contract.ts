@@ -89,7 +89,20 @@ export const challengeEscrowAbi = [
   },
 ] as const;
 
-export const usdcAbi = erc20Abi;
+export const usdcAbi = [
+  ...erc20Abi,
+  {
+    type: 'function',
+    name: 'mint',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+] as const;
+
 export const usdcDecimals = 6;
 export const defaultStake = '25';
 export const supportedChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 84532);

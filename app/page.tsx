@@ -1,6 +1,7 @@
 import { ConnectWalletButton } from '@/components/connect-wallet-button';
 import { CreateWagerForm } from '@/components/create-wager-form';
 import { LiveWagers } from '@/components/live-wagers';
+import { MintUsdcCard } from '@/components/mint-usdc-card';
 import { WagerActions } from '@/components/wager-actions';
 
 export default function HomePage() {
@@ -23,6 +24,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <MintUsdcCard />
 
       <CreateWagerForm />
 
