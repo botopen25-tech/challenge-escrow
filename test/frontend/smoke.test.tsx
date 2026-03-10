@@ -9,8 +9,12 @@ vi.mock('@rainbow-me/rainbowkit', () => ({
 
 vi.mock('wagmi', () => ({
   WagmiProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  useAccount: () => ({ address: undefined, isConnected: false }),
+  useAccount: () => ({ address: undefined, isConnected: false, chainId: undefined }),
+  useConnect: () => ({ connect: vi.fn(), isPending: false }),
+  useDisconnect: () => ({ disconnect: vi.fn() }),
+  useSwitchChain: () => ({ switchChain: vi.fn(), isPending: false }),
   useWriteContract: () => ({ writeContractAsync: vi.fn(), isPending: false }),
+  injected: () => ({ id: 'injected' }),
 }));
 
 vi.mock('@tanstack/react-query', () => ({
@@ -30,7 +34,7 @@ describe('frontend smoke tests', () => {
   it('renders the landing page shell', () => {
     render(<HomePage />);
     expect(screen.getByText(/Friendly wagers/i)).toBeInTheDocument();
-    expect(screen.getByText(/Create escrow challenge/i)).toBeInTheDocument();
+    expect(screen.getByText(/Approve USDC and create challenge/i)).toBeInTheDocument();
     expect(screen.getByText(/Your recent wagers/i)).toBeInTheDocument();
   });
 
