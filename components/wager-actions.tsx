@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAccount, useWriteContract } from 'wagmi';
+import { useAccount, usePublicClient, useWriteContract } from 'wagmi';
 import { challengeEscrowAbi, contractAddresses, supportedChainId, toUsdcAmount, usdcAbi } from '@/lib/contract';
 
 const row = 'button-secondary w-full';
@@ -9,6 +9,7 @@ const featuredStake = toUsdcAmount('25');
 
 export function WagerActions({ wagerId, creator, opponent }: { wagerId: number; creator: `0x${string}`; opponent: `0x${string}` }) {
   const { chainId, isConnected } = useAccount();
+  const publicClient = usePublicClient();
   const { writeContractAsync, isPending } = useWriteContract();
   const [message, setMessage] = useState('');
 
@@ -25,11 +26,15 @@ export function WagerActions({ wagerId, creator, opponent }: { wagerId: number; 
       setMessage('Missing NEXT_PUBLIC_CHALLENGE_ESCROW_ADDRESS');
       return false;
     }
+    if (!publicClient) {
+      setMessage('Public client unavailable. Refresh and try again.');
+      return false;
+    }
     return true;
   }
 
   async function call(functionName: 'confirmTie' | 'claimTimeoutRefund' | 'escalateDispute') {
-    if (!validateBaseReadiness() || !contractAddresses.escrow) {
+    if (!validateBaseReadiness() || !contractAddresses.escrow || !publicClient) {
       return;
     }
     try {
@@ -39,14 +44,15 @@ export function WagerActions({ wagerId, creator, opponent }: { wagerId: number; 
         functionName,
         args: [BigInt(wagerId)],
       });
-      setMessage(`${functionName} submitted: ${hash}`);
+      await publicClient.waitForTransactionReceipt({ hash });
+      setMessage(`${functionName} confirmed on-chain: ${hash}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Transaction failed');
     }
   }
 
   async function acceptWager() {
-    if (!validateBaseReadiness() || !contractAddresses.escrow || !contractAddresses.usdc) {
+    if (!validateBaseReadiness() || !contractAddresses.escrow || !contractAddresses.usdc || !publicClient) {
       if (!contractAddresses.usdc) {
         setMessage('Missing NEXT_PUBLIC_USDC_ADDRESS');
       }
@@ -61,7 +67,8 @@ export function WagerActions({ wagerId, creator, opponent }: { wagerId: number; 
         functionName: 'approve',
         args: [contractAddresses.escrow, featuredStake],
       });
-      setMessage(`Approval submitted: ${approvalHash}. Step 2/2: accept the wager in your wallet.`);
+      await publicClient.waitForTransactionReceipt({ hash: approvalHash });
+      setMessage('Approval confirmed. Step 2/2: accept the wager in your wallet.');
 
       const hash = await writeContractAsync({
         address: contractAddresses.escrow,
@@ -69,14 +76,15 @@ export function WagerActions({ wagerId, creator, opponent }: { wagerId: number; 
         functionName: 'acceptWager',
         args: [BigInt(wagerId)],
       });
-      setMessage(`acceptWager submitted: ${hash}`);
+      await publicClient.waitForTransactionReceipt({ hash });
+      setMessage(`acceptWager confirmed on-chain: ${hash}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Transaction failed');
     }
   }
 
   async function confirmWinner(winner: `0x${string}`) {
-    if (!validateBaseReadiness() || !contractAddresses.escrow) {
+    if (!validateBaseReadiness() || !contractAddresses.escrow || !publicClient) {
       return;
     }
     try {
@@ -86,7 +94,8 @@ export function WagerActions({ wagerId, creator, opponent }: { wagerId: number; 
         functionName: 'confirmWinner',
         args: [BigInt(wagerId), winner],
       });
-      setMessage(`confirmWinner submitted: ${hash}`);
+      await publicClient.waitForTransactionReceipt({ hash });
+      setMessage(`confirmWinner confirmed on-chain: ${hash}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Transaction failed');
     }
@@ -99,7 +108,7 @@ export function WagerActions({ wagerId, creator, opponent }: { wagerId: number; 
         <h3 className="mt-2 text-lg font-semibold text-white">Settle, refund, or dispute</h3>
       </div>
       <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-400">
-        Action buttons are wired for Base Sepolia. Accept now includes the required USDC approval step.
+        Live on-chain actions. Approvals now wait for confirmation before the escrow transaction runs.
       </div>
       <div className="grid grid-cols-2 gap-3">
         <button className={row} disabled={isPending} onClick={acceptWager} type="button">Approve + accept</button>
@@ -109,7 +118,7 @@ export function WagerActions({ wagerId, creator, opponent }: { wagerId: number; 
         <button className={row} disabled={isPending} onClick={() => call('claimTimeoutRefund')} type="button">Claim timeout refund</button>
         <button className={row} disabled={isPending} onClick={() => call('escalateDispute')} type="button">Escalate dispute</button>
       </div>
-      {message ? <p className="text-sm text-slate-300">{message}</p> : null}
+      {message ? <p className="text-sm text-slate-300 break-all">{message}</p> : null}
     </div>
   );
 }

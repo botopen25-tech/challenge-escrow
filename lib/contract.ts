@@ -3,6 +3,40 @@ import { erc20Abi, parseUnits } from 'viem';
 export const challengeEscrowAbi = [
   {
     type: 'function',
+    name: 'wagerCount',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'getWager',
+    stateMutability: 'view',
+    inputs: [{ name: 'wagerId', type: 'uint256' }],
+    outputs: [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'creator', type: 'address' },
+          { name: 'opponent', type: 'address' },
+          { name: 'token', type: 'address' },
+          { name: 'stake', type: 'uint256' },
+          { name: 'createdAt', type: 'uint64' },
+          { name: 'acceptedAt', type: 'uint64' },
+          { name: 'responseWindow', type: 'uint64' },
+          { name: 'status', type: 'uint8' },
+          { name: 'title', type: 'string' },
+          { name: 'details', type: 'string' },
+          { name: 'creatorWinnerVote', type: 'address' },
+          { name: 'opponentWinnerVote', type: 'address' },
+          { name: 'creatorTieVote', type: 'bool' },
+          { name: 'opponentTieVote', type: 'bool' },
+        ],
+      },
+    ],
+  },
+  {
+    type: 'function',
     name: 'createWager',
     stateMutability: 'nonpayable',
     inputs: [

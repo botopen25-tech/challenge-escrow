@@ -45,3 +45,39 @@ export const sampleWagers: WagerView[] = [
     outcomeHint: 'Use dispute or timeout refund if nobody agrees.',
   },
 ];
+
+export function shortenAddress(address: string) {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+export function statusLabel(status: number): WagerView['status'] {
+  switch (status) {
+    case 1:
+      return 'Created';
+    case 2:
+      return 'Accepted';
+    case 3:
+      return 'Resolved';
+    case 4:
+      return 'Refunded';
+    case 5:
+      return 'Disputed';
+    default:
+      return 'Created';
+  }
+}
+
+export function outcomeHintForStatus(status: WagerView['status']) {
+  switch (status) {
+    case 'Created':
+      return 'Waiting for the opponent to approve tokens and accept.';
+    case 'Accepted':
+      return 'Both players can now confirm a winner, mark a tie, or wait for timeout.';
+    case 'Resolved':
+      return 'Both players agreed on the winner and the escrow paid out.';
+    case 'Refunded':
+      return 'Funds were returned because the wager timed out or both sides marked a tie.';
+    case 'Disputed':
+      return 'Votes conflicted or a timeout dispute was escalated.';
+  }
+}

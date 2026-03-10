@@ -1,10 +1,7 @@
 import { ConnectWalletButton } from '@/components/connect-wallet-button';
 import { CreateWagerForm } from '@/components/create-wager-form';
+import { LiveWagers } from '@/components/live-wagers';
 import { WagerActions } from '@/components/wager-actions';
-import { WagerCard } from '@/components/wager-card';
-import { sampleWagers } from '@/lib/sample-data';
-
-const featured = sampleWagers[0];
 
 export default function HomePage() {
   return (
@@ -37,14 +34,10 @@ export default function HomePage() {
           </div>
           <p className="text-sm text-slate-400">Designed for quick mobile check-ins</p>
         </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          {sampleWagers.map((wager) => (
-            <WagerCard key={wager.id} wager={wager} />
-          ))}
-        </div>
+        <LiveWagers />
       </section>
 
-      <WagerActions wagerId={featured.id} creator={'0x7A1000000000000000000000000000000000Fa20'} opponent={'0x9B40000000000000000000000000000000001119'} />
+      <WagerActions wagerId={1} creator={'0x7915329107802f20Abe4217c38951B847f5c0Da5'} opponent={'0x5089f22CC4a15F61656A2c15B6f3782019A845CB'} />
     </main>
   );
 }

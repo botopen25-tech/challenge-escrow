@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useMemo, useState } from 'react';
-import { useAccount, useWriteContract } from 'wagmi';
+import { useAccount, usePublicClient, useWriteContract } from 'wagmi';
 import { challengeEscrowAbi, contractAddresses, defaultStake, supportedChainId, toUsdcAmount, usdcAbi } from '@/lib/contract';
 
 const initialState = {
@@ -14,6 +14,7 @@ const initialState = {
 
 export function CreateWagerForm() {
   const { address, isConnected, chainId } = useAccount();
+  const publicClient = usePublicClient();
   const { writeContractAsync, isPending } = useWriteContract();
   const [form, setForm] = useState(initialState);
   const [message, setMessage] = useState<string>('');
@@ -41,6 +42,11 @@ export function CreateWagerForm() {
       return;
     }
 
+    if (!publicClient) {
+      setMessage('Public client unavailable. Refresh and try again.');
+      return;
+    }
+
     try {
       const stakeAmount = toUsdcAmount(form.stake);
 
@@ -51,8 +57,9 @@ export function CreateWagerForm() {
         functionName: 'approve',
         args: [contractAddresses.escrow, stakeAmount],
       });
+      await publicClient.waitForTransactionReceipt({ hash: approvalHash });
 
-      setMessage(`Approval submitted: ${approvalHash}. Step 2/2: create the wager in your wallet.`);
+      setMessage('Approval confirmed. Step 2/2: create the wager in your wallet.');
 
       const hash = await writeContractAsync({
         address: contractAddresses.escrow,
@@ -67,7 +74,8 @@ export function CreateWagerForm() {
           form.details,
         ],
       });
-      setMessage(`Wager submitted: ${hash}`);
+      await publicClient.waitForTransactionReceipt({ hash });
+      setMessage(`Wager confirmed on-chain: ${hash}`);
       setForm(initialState);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Transaction failed');
@@ -114,7 +122,7 @@ export function CreateWagerForm() {
       <button className="button-primary w-full" disabled={!ready || isPending} type="submit">
         {isPending ? 'Waiting for wallet...' : 'Approve USDC and create challenge'}
       </button>
-      {message ? <p className="text-sm text-slate-300">{message}</p> : null}
+      {message ? <p className="text-sm text-slate-300 break-all">{message}</p> : null}
     </form>
   );
 }

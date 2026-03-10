@@ -14,6 +14,9 @@ vi.mock('wagmi', () => ({
   useDisconnect: () => ({ disconnect: vi.fn() }),
   useSwitchChain: () => ({ switchChain: vi.fn(), isPending: false }),
   useWriteContract: () => ({ writeContractAsync: vi.fn(), isPending: false }),
+  usePublicClient: () => ({ waitForTransactionReceipt: vi.fn() }),
+  useReadContract: () => ({ data: 0n }),
+  useReadContracts: () => ({ data: [], isLoading: false }),
 }));
 
 vi.mock('@wagmi/core', () => ({
