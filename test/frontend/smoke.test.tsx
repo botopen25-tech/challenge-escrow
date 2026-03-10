@@ -14,6 +14,9 @@ vi.mock('wagmi', () => ({
   useDisconnect: () => ({ disconnect: vi.fn() }),
   useSwitchChain: () => ({ switchChain: vi.fn(), isPending: false }),
   useWriteContract: () => ({ writeContractAsync: vi.fn(), isPending: false }),
+}));
+
+vi.mock('@wagmi/core', () => ({
   injected: () => ({ id: 'injected' }),
 }));
 

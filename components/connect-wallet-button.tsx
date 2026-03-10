@@ -1,6 +1,7 @@
 'use client';
 
-import { injected, useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
+import { injected } from '@wagmi/core';
+import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 import { supportedChainId } from '@/lib/contract';
 
 function shortenAddress(address: string) {
