@@ -1,5 +1,5 @@
 # ChallengeEscrow
-add add
+add add add
 Mobile-first friend wagers with wallet-based escrow.
 
 This MVP uses:
