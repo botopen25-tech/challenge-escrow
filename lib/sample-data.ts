@@ -7,6 +7,10 @@ export type WagerView = {
   opponent: string;
   creatorAddress?: `0x${string}`;
   opponentAddress?: `0x${string}`;
+  creatorVote?: string;
+  opponentVote?: string;
+  myVote?: string;
+  settlementState?: string;
   status: 'Created' | 'Accepted' | 'Resolved' | 'Refunded' | 'Disputed';
   deadline: string;
   outcomeHint: string;
@@ -74,7 +78,7 @@ export function outcomeHintForStatus(status: WagerView['status']) {
     case 'Created':
       return 'Waiting for the opponent to approve tokens and accept.';
     case 'Accepted':
-      return 'Both players can now confirm a winner, mark a tie, or wait for timeout.';
+      return 'Submit your result once. The card should make it clear what happens next.';
     case 'Resolved':
       return 'Both players agreed on the winner and the escrow paid out.';
     case 'Refunded':

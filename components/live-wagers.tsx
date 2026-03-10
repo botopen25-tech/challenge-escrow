@@ -17,8 +17,8 @@ type LiveWagerResult = {
   status: number;
   title: string;
   details: string;
-  creatorWinnerVote: string;
-  opponentWinnerVote: string;
+  creatorWinnerVote: `0x${string}`;
+  opponentWinnerVote: `0x${string}`;
   creatorTieVote: boolean;
   opponentTieVote: boolean;
 };
@@ -34,6 +34,32 @@ function buildDeadline(createdAt: bigint, acceptedAt: bigint, responseWindow: bi
   if (status === 'Disputed') return diffMs > 0 ? `${Math.ceil(diffMs / 3600000)}h until timeout` : 'Timeout open';
   if (diffMs <= 0) return 'Timeout open';
   return `${Math.max(1, Math.ceil(diffMs / 3600000))}h remaining`;
+}
+
+function voteLabel(result: LiveWagerResult, who: 'creator' | 'opponent') {
+  if (who === 'creator') {
+    if (result.creatorTieVote) return 'Tie';
+    if (result.creatorWinnerVote === result.creator) return 'I won';
+    if (result.creatorWinnerVote === result.opponent) return 'I lost';
+    return 'Waiting';
+  }
+  if (result.opponentTieVote) return 'Tie';
+  if (result.opponentWinnerVote === result.opponent) return 'I won';
+  if (result.opponentWinnerVote === result.creator) return 'I lost';
+  return 'Waiting';
+}
+
+function settlementState(result: LiveWagerResult, status: WagerView['status']) {
+  if (status === 'Resolved') return 'Agreed and paid';
+  if (status === 'Refunded') return 'Refunded';
+  if (status === 'Disputed') return 'Disputed';
+  if (status === 'Created') return 'Waiting for opponent';
+
+  const creatorVote = voteLabel(result, 'creator');
+  const opponentVote = voteLabel(result, 'opponent');
+  if (creatorVote === 'Waiting' || opponentVote === 'Waiting') return 'Waiting on result';
+  if (creatorVote === opponentVote) return 'Agreed';
+  return 'Conflicting votes';
 }
 
 export function LiveWagers() {
@@ -72,6 +98,9 @@ export function LiveWagers() {
     if (item.status !== 'success' || !item.result) return [];
     const result = item.result as unknown as LiveWagerResult;
     const status = statusLabel(Number(result.status));
+    const creatorVote = voteLabel(result, 'creator');
+    const opponentVote = voteLabel(result, 'opponent');
+    const myVote = !address ? undefined : result.creator.toLowerCase() === address.toLowerCase() ? creatorVote : result.opponent.toLowerCase() === address.toLowerCase() ? opponentVote : undefined;
     return [{
       id: Number(ids[index]),
       title: result.title || `Wager #${ids[index].toString()}`,
@@ -81,6 +110,10 @@ export function LiveWagers() {
       opponent: shortenAddress(result.opponent),
       creatorAddress: result.creator,
       opponentAddress: result.opponent,
+      creatorVote,
+      opponentVote,
+      myVote,
+      settlementState: settlementState(result, status),
       status,
       deadline: buildDeadline(result.createdAt, result.acceptedAt, result.responseWindow, status),
       outcomeHint: outcomeHintForStatus(status),

@@ -52,8 +52,10 @@ export function WagerActions({ wager }: { wager: WagerView }) {
   if (!creator || !opponent) return null;
   if (role === 'viewer') return <p className="text-xs text-slate-500">View only</p>;
 
+  const hasSubmittedResult = Boolean(wager.myVote && wager.myVote !== 'Waiting');
   let primaryAction: { label: string; onClick: () => void } | null = null;
   let secondaryAction: { label: string; onClick: () => void } | null = null;
+  let tertiaryAction: { label: string; onClick: () => void } | null = null;
 
   if (wager.status === 'Created' && role === 'opponent') {
     primaryAction = {
@@ -77,7 +79,7 @@ export function WagerActions({ wager }: { wager: WagerView }) {
     };
   }
 
-  if (wager.status === 'Accepted') {
+  if (wager.status === 'Accepted' && !hasSubmittedResult) {
     primaryAction = {
       label: 'I won',
       onClick: () => runWrite(
@@ -90,7 +92,6 @@ export function WagerActions({ wager }: { wager: WagerView }) {
         'Winner confirmed on-chain.'
       ),
     };
-
     secondaryAction = {
       label: 'I lost',
       onClick: () => runWrite(
@@ -101,6 +102,18 @@ export function WagerActions({ wager }: { wager: WagerView }) {
           args: [BigInt(wager.id), role === 'creator' ? opponent : creator],
         }),
         'Loss recorded on-chain.'
+      ),
+    };
+    tertiaryAction = {
+      label: 'Tie',
+      onClick: () => runWrite(
+        () => writeContractAsync({
+          address: contractAddresses.escrow!,
+          abi: challengeEscrowAbi,
+          functionName: 'confirmTie',
+          args: [BigInt(wager.id)],
+        }),
+        'Tie recorded on-chain.'
       ),
     };
   }
@@ -122,8 +135,11 @@ export function WagerActions({ wager }: { wager: WagerView }) {
 
   return (
     <div className="space-y-3 border-t border-white/10 pt-4">
+      {hasSubmittedResult && wager.status === 'Accepted' ? (
+        <p className="text-xs text-slate-400">You already submitted: <span className="font-medium text-white">{wager.myVote}</span></p>
+      ) : null}
       {primaryAction ? (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <button className="button-secondary w-full" disabled={isPending} onClick={primaryAction.onClick} type="button">
             {isPending ? 'Waiting for wallet...' : primaryAction.label}
           </button>
@@ -132,8 +148,13 @@ export function WagerActions({ wager }: { wager: WagerView }) {
               {isPending ? 'Waiting for wallet...' : secondaryAction.label}
             </button>
           ) : null}
+          {tertiaryAction ? (
+            <button className="button-secondary w-full" disabled={isPending} onClick={tertiaryAction.onClick} type="button">
+              {isPending ? 'Waiting for wallet...' : tertiaryAction.label}
+            </button>
+          ) : null}
         </div>
-      ) : (
+      ) : hasSubmittedResult ? null : (
         <p className="text-xs text-slate-500">No action needed right now.</p>
       )}
       {message ? <p className="text-xs text-slate-400 break-all">{message}</p> : null}
