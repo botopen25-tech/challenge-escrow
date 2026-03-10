@@ -1,4 +1,4 @@
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { ConnectWalletButton } from '@/components/connect-wallet-button';
 import { CreateWagerForm } from '@/components/create-wager-form';
 import { WagerActions } from '@/components/wager-actions';
 import { WagerCard } from '@/components/wager-card';
@@ -16,7 +16,7 @@ export default function HomePage() {
               <p className="badge">ChallengeEscrow</p>
               <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">Friendly wagers. Clear rules. No awkward IOUs.</h1>
             </div>
-            <ConnectButton />
+            <ConnectWalletButton />
           </div>
           <p className="max-w-xl text-sm leading-6 text-slate-300">Create a one-on-one challenge, lock both deposits in escrow, then settle by mutual confirmation. If nobody agrees, the timeout path keeps funds from getting stuck forever.</p>
           <div className="grid grid-cols-3 gap-3 text-sm">
