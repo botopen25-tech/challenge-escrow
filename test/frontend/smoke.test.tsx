@@ -41,7 +41,7 @@ describe('frontend smoke tests', () => {
     render(<HomePage />);
     expect(screen.getByText(/Friendly wagers/i)).toBeInTheDocument();
     expect(screen.getByText(/Approve USDC and create challenge/i)).toBeInTheDocument();
-    expect(screen.getByText(/Your recent wagers/i)).toBeInTheDocument();
+    expect(screen.getByText(/Your wagers/i)).toBeInTheDocument();
   });
 
   it('renders wager card details', () => {

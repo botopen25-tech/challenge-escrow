@@ -3,15 +3,19 @@
 import { useState } from 'react';
 import { useAccount, usePublicClient, useWriteContract } from 'wagmi';
 import { challengeEscrowAbi, contractAddresses, supportedChainId, toUsdcAmount, usdcAbi } from '@/lib/contract';
+import type { WagerView } from '@/lib/sample-data';
 
-const row = 'button-secondary w-full';
-const featuredStake = toUsdcAmount('25');
+const row = 'button-secondary w-full text-sm';
 
-export function WagerActions({ wagerId, creator, opponent }: { wagerId: number; creator: `0x${string}`; opponent: `0x${string}` }) {
+export function WagerActions({ wager }: { wager: WagerView }) {
   const { chainId, isConnected } = useAccount();
   const publicClient = usePublicClient();
   const { writeContractAsync, isPending } = useWriteContract();
   const [message, setMessage] = useState('');
+
+  const creator = wager.creatorAddress;
+  const opponent = wager.opponentAddress;
+  const stakeAmount = toUsdcAmount(wager.stake.replace(' USDC', '').replace('$', ''));
 
   function validateBaseReadiness() {
     if (!isConnected) {
@@ -27,25 +31,23 @@ export function WagerActions({ wagerId, creator, opponent }: { wagerId: number; 
       return false;
     }
     if (!publicClient) {
-      setMessage('Public client unavailable. Refresh and try again.');
+      setMessage('Refresh and try again.');
       return false;
     }
     return true;
   }
 
   async function call(functionName: 'confirmTie' | 'claimTimeoutRefund' | 'escalateDispute') {
-    if (!validateBaseReadiness() || !contractAddresses.escrow || !publicClient) {
-      return;
-    }
+    if (!validateBaseReadiness() || !contractAddresses.escrow || !publicClient) return;
     try {
       const hash = await writeContractAsync({
         address: contractAddresses.escrow,
         abi: challengeEscrowAbi,
         functionName,
-        args: [BigInt(wagerId)],
+        args: [BigInt(wager.id)],
       });
       await publicClient.waitForTransactionReceipt({ hash });
-      setMessage(`${functionName} confirmed on-chain: ${hash}`);
+      setMessage('Confirmed on-chain.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Transaction failed');
     }
@@ -53,72 +55,74 @@ export function WagerActions({ wagerId, creator, opponent }: { wagerId: number; 
 
   async function acceptWager() {
     if (!validateBaseReadiness() || !contractAddresses.escrow || !contractAddresses.usdc || !publicClient) {
-      if (!contractAddresses.usdc) {
-        setMessage('Missing NEXT_PUBLIC_USDC_ADDRESS');
-      }
+      if (!contractAddresses.usdc) setMessage('Missing NEXT_PUBLIC_USDC_ADDRESS');
       return;
     }
 
     try {
-      setMessage('Step 1/2: approving USDC...');
+      setMessage('Approving USDC...');
       const approvalHash = await writeContractAsync({
         address: contractAddresses.usdc,
         abi: usdcAbi,
         functionName: 'approve',
-        args: [contractAddresses.escrow, featuredStake],
+        args: [contractAddresses.escrow, stakeAmount],
       });
       await publicClient.waitForTransactionReceipt({ hash: approvalHash });
-      setMessage('Approval confirmed. Step 2/2: accept the wager in your wallet.');
 
+      setMessage('Approval confirmed. Accepting wager...');
       const hash = await writeContractAsync({
         address: contractAddresses.escrow,
         abi: challengeEscrowAbi,
         functionName: 'acceptWager',
-        args: [BigInt(wagerId)],
+        args: [BigInt(wager.id)],
       });
       await publicClient.waitForTransactionReceipt({ hash });
-      setMessage(`acceptWager confirmed on-chain: ${hash}`);
+      setMessage('Wager accepted.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Transaction failed');
     }
   }
 
   async function confirmWinner(winner: `0x${string}`) {
-    if (!validateBaseReadiness() || !contractAddresses.escrow || !publicClient) {
-      return;
-    }
+    if (!validateBaseReadiness() || !contractAddresses.escrow || !publicClient) return;
     try {
       const hash = await writeContractAsync({
         address: contractAddresses.escrow,
         abi: challengeEscrowAbi,
         functionName: 'confirmWinner',
-        args: [BigInt(wagerId), winner],
+        args: [BigInt(wager.id), winner],
       });
       await publicClient.waitForTransactionReceipt({ hash });
-      setMessage(`confirmWinner confirmed on-chain: ${hash}`);
+      setMessage('Winner confirmed on-chain.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Transaction failed');
     }
   }
 
+  if (!creator || !opponent) return null;
+
   return (
-    <div className="card space-y-3" id={`wager-${wagerId}`}>
-      <div>
-        <p className="badge">Actions</p>
-        <h3 className="mt-2 text-lg font-semibold text-white">Settle, refund, or dispute</h3>
+    <div className="space-y-3 border-t border-white/10 pt-4">
+      <div className="grid grid-cols-2 gap-2">
+        {wager.status === 'Created' ? (
+          <button className={row} disabled={isPending} onClick={acceptWager} type="button">Accept</button>
+        ) : null}
+        {wager.status === 'Accepted' ? (
+          <>
+            <button className={row} disabled={isPending} onClick={() => confirmWinner(creator)} type="button">Creator won</button>
+            <button className={row} disabled={isPending} onClick={() => confirmWinner(opponent)} type="button">Opponent won</button>
+            <button className={row} disabled={isPending} onClick={() => call('confirmTie')} type="button">Mark tie</button>
+            <button className={row} disabled={isPending} onClick={() => call('claimTimeoutRefund')} type="button">Refund</button>
+          </>
+        ) : null}
+        {wager.status === 'Disputed' ? (
+          <>
+            <button className={row} disabled={isPending} onClick={() => call('claimTimeoutRefund')} type="button">Refund</button>
+            <button className={row} disabled={isPending} onClick={() => call('escalateDispute')} type="button">Escalate</button>
+          </>
+        ) : null}
       </div>
-      <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-400">
-        Live on-chain actions. Approvals now wait for confirmation before the escrow transaction runs.
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <button className={row} disabled={isPending} onClick={acceptWager} type="button">Approve + accept</button>
-        <button className={row} disabled={isPending} onClick={() => confirmWinner(creator)} type="button">Creator won</button>
-        <button className={row} disabled={isPending} onClick={() => confirmWinner(opponent)} type="button">Opponent won</button>
-        <button className={row} disabled={isPending} onClick={() => call('confirmTie')} type="button">Mark tie</button>
-        <button className={row} disabled={isPending} onClick={() => call('claimTimeoutRefund')} type="button">Claim timeout refund</button>
-        <button className={row} disabled={isPending} onClick={() => call('escalateDispute')} type="button">Escalate dispute</button>
-      </div>
-      {message ? <p className="text-sm text-slate-300 break-all">{message}</p> : null}
+      {message ? <p className="text-xs text-slate-400 break-all">{message}</p> : null}
     </div>
   );
 }

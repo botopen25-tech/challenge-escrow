@@ -5,6 +5,8 @@ export type WagerView = {
   stake: string;
   creator: string;
   opponent: string;
+  creatorAddress?: `0x${string}`;
+  opponentAddress?: `0x${string}`;
   status: 'Created' | 'Accepted' | 'Resolved' | 'Refunded' | 'Disputed';
   deadline: string;
   outcomeHint: string;

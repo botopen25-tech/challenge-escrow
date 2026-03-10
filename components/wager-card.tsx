@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import { WagerView } from '@/lib/sample-data';
 import { StatusPill } from './status-pill';
+import { WagerActions } from './wager-actions';
 
 export function WagerCard({ wager }: { wager: WagerView }) {
   return (
@@ -12,21 +12,30 @@ export function WagerCard({ wager }: { wager: WagerView }) {
         </div>
         <StatusPill status={wager.status} />
       </div>
+
       <p className="text-sm leading-6 text-slate-300">{wager.details}</p>
+
       <dl className="grid grid-cols-2 gap-3 text-sm text-slate-300">
         <div>
           <dt className="text-slate-500">Stake</dt>
           <dd className="mt-1 font-medium text-white">{wager.stake}</dd>
         </div>
         <div>
-          <dt className="text-slate-500">Window</dt>
+          <dt className="text-slate-500">Deadline</dt>
           <dd className="mt-1 font-medium text-white">{wager.deadline}</dd>
         </div>
+        <div>
+          <dt className="text-slate-500">Creator</dt>
+          <dd className="mt-1 font-medium text-white">{wager.creator}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">Opponent</dt>
+          <dd className="mt-1 font-medium text-white">{wager.opponent}</dd>
+        </div>
       </dl>
+
       <p className="rounded-2xl bg-white/5 px-3 py-2 text-sm text-slate-300">{wager.outcomeHint}</p>
-      <Link className="button-secondary w-full" href={`/#wager-${wager.id}`}>
-        Open details
-      </Link>
+      <WagerActions wager={wager} />
     </article>
   );
 }

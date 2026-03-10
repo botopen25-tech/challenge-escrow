@@ -7,8 +7,8 @@ import { outcomeHintForStatus, shortenAddress, statusLabel, type WagerView } fro
 import { WagerCard } from './wager-card';
 
 type LiveWagerResult = {
-  creator: string;
-  opponent: string;
+  creator: `0x${string}`;
+  opponent: `0x${string}`;
   token: string;
   stake: bigint;
   createdAt: bigint;
@@ -29,10 +29,10 @@ function buildDeadline(createdAt: bigint, acceptedAt: bigint, responseWindow: bi
   const now = Date.now();
   const diffMs = end - now;
 
-  if (status === 'Resolved') return 'Resolved on-chain';
-  if (status === 'Refunded') return 'Refunded on-chain';
-  if (status === 'Disputed') return diffMs > 0 ? `${Math.ceil(diffMs / 3600000)}h until timeout` : 'Timeout window is open';
-  if (diffMs <= 0) return 'Timeout window is open';
+  if (status === 'Resolved') return 'Resolved';
+  if (status === 'Refunded') return 'Refunded';
+  if (status === 'Disputed') return diffMs > 0 ? `${Math.ceil(diffMs / 3600000)}h until timeout` : 'Timeout open';
+  if (diffMs <= 0) return 'Timeout open';
 
   const hours = Math.max(1, Math.ceil(diffMs / 3600000));
   return `${hours}h remaining`;
@@ -65,77 +65,58 @@ export function LiveWagers() {
     },
   });
 
-  if (!contractAddresses.escrow) {
-    return <p className="text-sm text-slate-400">Missing escrow contract address in env config.</p>;
-  }
+  if (!contractAddresses.escrow) return <p className="text-sm text-slate-400">Missing escrow contract address in env config.</p>;
+  if (!isConnected) return <p className="text-sm text-slate-400">Connect a wallet to load wagers.</p>;
+  if (chainId !== supportedChainId) return <p className="text-sm text-slate-400">Switch to Base Sepolia to load wagers.</p>;
+  if (isLoading) return <p className="text-sm text-slate-400">Loading wagers...</p>;
 
-  if (!isConnected) {
-    return <p className="text-sm text-slate-400">Connect a wallet to load live on-chain wagers.</p>;
-  }
+  const allWagers: WagerView[] = (data ?? []).flatMap((item, index) => {
+    if (item.status !== 'success' || !item.result) return [];
+    const result = item.result as unknown as LiveWagerResult;
+    const status = statusLabel(Number(result.status));
 
-  if (chainId !== supportedChainId) {
-    return <p className="text-sm text-slate-400">Switch to Base Sepolia to load live wagers.</p>;
-  }
-
-  if (isLoading) {
-    return <p className="text-sm text-slate-400">Loading live wagers...</p>;
-  }
-
-  const allWagers: WagerView[] = (data ?? [])
-    .flatMap((item, index) => {
-      if (item.status !== 'success' || !item.result) return [];
-      const result = item.result as unknown as LiveWagerResult;
-      const creator = result.creator;
-      const opponent = result.opponent;
-      const status = statusLabel(Number(result.status));
-      return [{
-        id: Number(ids[index]),
-        title: result.title || `Wager #${ids[index].toString()}`,
-        details: result.details || 'No extra notes were provided.',
-        stake: `${formatUnits(result.stake, usdcDecimals)} USDC`,
-        creator: shortenAddress(creator),
-        opponent: shortenAddress(opponent),
-        status,
-        deadline: buildDeadline(result.createdAt, result.acceptedAt, result.responseWindow, status),
-        outcomeHint: outcomeHintForStatus(status),
-      }];
-    });
+    return [{
+      id: Number(ids[index]),
+      title: result.title || `Wager #${ids[index].toString()}`,
+      details: result.details || 'No extra notes were provided.',
+      stake: `${formatUnits(result.stake, usdcDecimals)} USDC`,
+      creator: shortenAddress(result.creator),
+      opponent: shortenAddress(result.opponent),
+      creatorAddress: result.creator,
+      opponentAddress: result.opponent,
+      status,
+      deadline: buildDeadline(result.createdAt, result.acceptedAt, result.responseWindow, status),
+      outcomeHint: outcomeHintForStatus(status),
+    }];
+  });
 
   const walletWagers = address
-    ? allWagers.filter((_, index) => {
-        const item = (data ?? [])[index];
-        if (!item || item.status !== 'success' || !item.result) return false;
-        const result = item.result as unknown as LiveWagerResult;
-        return result.creator.toLowerCase() === address.toLowerCase() || result.opponent.toLowerCase() === address.toLowerCase();
-      })
+    ? allWagers.filter((wager) =>
+        wager.creatorAddress?.toLowerCase() === address.toLowerCase() ||
+        wager.opponentAddress?.toLowerCase() === address.toLowerCase()
+      )
     : [];
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
-        <p className="font-medium text-white">Live contract debug</p>
-        <p className="mt-1 text-slate-400">Total wagers on-chain: {wagerCount ? wagerCount.toString() : '0'}</p>
-        <p className="mt-1 text-slate-400">Wagers involving connected wallet: {walletWagers.length}</p>
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
+        <div>
+          <p className="font-medium text-white">Live wagers</p>
+          <p className="text-slate-400">{walletWagers.length} for this wallet · {wagerCount ? wagerCount.toString() : '0'} total on-chain</p>
+        </div>
       </div>
 
       {walletWagers.length ? (
-        <>
-          <p className="text-sm font-medium text-white">Connected wallet wagers</p>
-          <div className="grid gap-4 lg:grid-cols-3">
-            {walletWagers.map(wager => <WagerCard key={`wallet-${wager.id}`} wager={wager} />)}
+        <div className="grid gap-4 lg:grid-cols-2">
+          {walletWagers.map((wager) => <WagerCard key={wager.id} wager={wager} />)}
+        </div>
+      ) : allWagers.length ? (
+        <div className="space-y-3">
+          <p className="text-sm text-slate-400">No wagers for this wallet yet. Here are the latest on-chain wagers for debugging.</p>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {allWagers.map((wager) => <WagerCard key={wager.id} wager={wager} />)}
           </div>
-        </>
-      ) : (
-        <p className="text-sm text-slate-400">No wagers for this wallet yet.</p>
-      )}
-
-      {allWagers.length ? (
-        <>
-          <p className="text-sm font-medium text-white">All on-chain wagers</p>
-          <div className="grid gap-4 lg:grid-cols-3">
-            {allWagers.map(wager => <WagerCard key={`all-${wager.id}`} wager={wager} />)}
-          </div>
-        </>
+        </div>
       ) : (
         <p className="text-sm text-slate-400">No wagers exist on-chain yet. Mint MockUSDC first, then create one.</p>
       )}
