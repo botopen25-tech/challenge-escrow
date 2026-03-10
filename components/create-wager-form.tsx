@@ -2,7 +2,7 @@
 
 import { FormEvent, useMemo, useState } from 'react';
 import { useAccount, useWriteContract } from 'wagmi';
-import { challengeEscrowAbi, contractAddresses, defaultStake, toUsdcAmount } from '@/lib/contract';
+import { challengeEscrowAbi, contractAddresses, defaultStake, supportedChainId, toUsdcAmount, usdcAbi } from '@/lib/contract';
 
 const initialState = {
   opponent: '',
@@ -13,22 +13,47 @@ const initialState = {
 };
 
 export function CreateWagerForm() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chainId } = useAccount();
   const { writeContractAsync, isPending } = useWriteContract();
   const [form, setForm] = useState(initialState);
   const [message, setMessage] = useState<string>('');
 
-  const ready = Boolean(contractAddresses.escrow && contractAddresses.usdc && isConnected);
+  const hasContracts = Boolean(contractAddresses.escrow && contractAddresses.usdc);
+  const onSupportedChain = chainId === supportedChainId;
+  const ready = hasContracts && isConnected && onSupportedChain;
   const summary = useMemo(() => `${form.stake || '0'} USDC · ${form.responseWindowHours || '0'}h response window`, [form]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!ready || !contractAddresses.escrow || !contractAddresses.usdc) {
-      setMessage('Connect a wallet and configure NEXT_PUBLIC_* contract addresses first.');
+
+    if (!hasContracts || !contractAddresses.escrow || !contractAddresses.usdc) {
+      setMessage('Missing contract config. Set NEXT_PUBLIC_CHALLENGE_ESCROW_ADDRESS and NEXT_PUBLIC_USDC_ADDRESS.');
+      return;
+    }
+
+    if (!isConnected) {
+      setMessage('Connect your wallet first.');
+      return;
+    }
+
+    if (!onSupportedChain) {
+      setMessage('Switch your wallet to Base Sepolia first.');
       return;
     }
 
     try {
+      const stakeAmount = toUsdcAmount(form.stake);
+
+      setMessage('Step 1/2: approving USDC...');
+      const approvalHash = await writeContractAsync({
+        address: contractAddresses.usdc,
+        abi: usdcAbi,
+        functionName: 'approve',
+        args: [contractAddresses.escrow, stakeAmount],
+      });
+
+      setMessage(`Approval submitted: ${approvalHash}. Step 2/2: create the wager in your wallet.`);
+
       const hash = await writeContractAsync({
         address: contractAddresses.escrow,
         abi: challengeEscrowAbi,
@@ -36,7 +61,7 @@ export function CreateWagerForm() {
         args: [
           form.opponent as `0x${string}`,
           contractAddresses.usdc,
-          toUsdcAmount(form.stake),
+          stakeAmount,
           BigInt(Number(form.responseWindowHours) * 60 * 60),
           form.title,
           form.details,
@@ -60,33 +85,34 @@ export function CreateWagerForm() {
       <p className="text-sm text-slate-300">Deposit your side now, send the link, and wait for your opponent to match the stake.</p>
       <label className="block space-y-2 text-sm">
         <span className="text-slate-300">Opponent wallet</span>
-        <input className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3" placeholder="0x..." value={form.opponent} onChange={(e) => setForm({ ...form, opponent: e.target.value })} />
+        <input className="field" placeholder="0x..." value={form.opponent} onChange={(e) => setForm({ ...form, opponent: e.target.value })} />
       </label>
       <div className="grid grid-cols-2 gap-3">
         <label className="block space-y-2 text-sm">
           <span className="text-slate-300">Stake (USDC)</span>
-          <input className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3" inputMode="decimal" value={form.stake} onChange={(e) => setForm({ ...form, stake: e.target.value })} />
+          <input className="field" inputMode="decimal" value={form.stake} onChange={(e) => setForm({ ...form, stake: e.target.value })} />
         </label>
         <label className="block space-y-2 text-sm">
           <span className="text-slate-300">Response window</span>
-          <input className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3" inputMode="numeric" value={form.responseWindowHours} onChange={(e) => setForm({ ...form, responseWindowHours: e.target.value })} />
+          <input className="field" inputMode="numeric" value={form.responseWindowHours} onChange={(e) => setForm({ ...form, responseWindowHours: e.target.value })} />
         </label>
       </div>
       <label className="block space-y-2 text-sm">
         <span className="text-slate-300">Challenge title</span>
-        <input className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3" placeholder="Sunday 10k" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+        <input className="field" placeholder="Sunday 10k" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
       </label>
       <label className="block space-y-2 text-sm">
         <span className="text-slate-300">Rules / proof notes</span>
-        <textarea className="min-h-28 w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3" placeholder="How the result will be verified..." value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} />
+        <textarea className="field min-h-28" placeholder="How the result will be verified..." value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} />
       </label>
       <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm text-slate-300">
         <p className="font-medium text-white">Summary</p>
         <p className="mt-1">{summary}</p>
         <p className="mt-1 text-xs text-slate-400">Connected wallet: {address ?? 'not connected'}</p>
+        <p className="mt-1 text-xs text-slate-400">Network: {chainId === supportedChainId ? 'Base Sepolia' : 'wrong network or not connected'}</p>
       </div>
       <button className="button-primary w-full" disabled={!ready || isPending} type="submit">
-        {isPending ? 'Submitting...' : 'Create escrow challenge'}
+        {isPending ? 'Waiting for wallet...' : 'Approve USDC and create challenge'}
       </button>
       {message ? <p className="text-sm text-slate-300">{message}</p> : null}
     </form>

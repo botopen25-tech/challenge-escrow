@@ -6,8 +6,19 @@
   color-scheme: dark;
 }
 
+html {
+  background:
+    radial-gradient(circle at top, rgba(94, 234, 212, 0.16), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(96, 165, 250, 0.18), transparent 32%),
+    #08111f;
+}
+
 body {
-  @apply bg-ink text-slate-100 antialiased;
+  @apply min-h-screen bg-ink text-slate-100 antialiased;
+  background:
+    radial-gradient(circle at top, rgba(94, 234, 212, 0.08), transparent 22%),
+    radial-gradient(circle at bottom right, rgba(96, 165, 250, 0.1), transparent 28%),
+    #08111f;
 }
 
 input, textarea, select {
@@ -18,12 +29,16 @@ input, textarea, select {
   @apply rounded-3xl border border-white/10 bg-white/5 p-5 shadow-glow backdrop-blur;
 }
 
+.field {
+  @apply w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-white placeholder:text-slate-500 transition focus:border-brand/70 focus:ring-2 focus:ring-brand/20;
+}
+
 .button-primary {
   @apply inline-flex items-center justify-center rounded-2xl bg-brand px-4 py-3 font-semibold text-slate-950 transition hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-60;
 }
 
 .button-secondary {
-  @apply inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-semibold text-white transition hover:bg-white/10;
+  @apply inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60;
 }
 
 .badge {

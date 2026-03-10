@@ -1,15 +1,30 @@
 'use client';
 
-import { injected, useAccount, useConnect, useDisconnect } from 'wagmi';
+import { injected, useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
+import { supportedChainId } from '@/lib/contract';
 
 function shortenAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 export function ConnectWalletButton() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chainId } = useAccount();
   const { connect, isPending } = useConnect();
   const { disconnect } = useDisconnect();
+  const { switchChain, isPending: isSwitching } = useSwitchChain();
+
+  if (isConnected && chainId !== supportedChainId) {
+    return (
+      <button
+        className="button-primary"
+        onClick={() => switchChain({ chainId: supportedChainId })}
+        disabled={isSwitching}
+        type="button"
+      >
+        {isSwitching ? 'Switching...' : 'Switch to Base Sepolia'}
+      </button>
+    );
+  }
 
   if (isConnected && address) {
     return (

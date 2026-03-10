@@ -1,4 +1,4 @@
-import { parseUnits } from 'viem';
+import { erc20Abi, parseUnits } from 'viem';
 
 export const challengeEscrowAbi = [
   {
@@ -55,8 +55,10 @@ export const challengeEscrowAbi = [
   },
 ] as const;
 
+export const usdcAbi = erc20Abi;
 export const usdcDecimals = 6;
 export const defaultStake = '25';
+export const supportedChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 84532);
 
 export function toUsdcAmount(value: string) {
   return parseUnits(value || '0', usdcDecimals);
