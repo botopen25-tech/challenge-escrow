@@ -33,9 +33,7 @@ function buildDeadline(createdAt: bigint, acceptedAt: bigint, responseWindow: bi
   if (status === 'Refunded') return 'Refunded';
   if (status === 'Disputed') return diffMs > 0 ? `${Math.ceil(diffMs / 3600000)}h until timeout` : 'Timeout open';
   if (diffMs <= 0) return 'Timeout open';
-
-  const hours = Math.max(1, Math.ceil(diffMs / 3600000));
-  return `${hours}h remaining`;
+  return `${Math.max(1, Math.ceil(diffMs / 3600000))}h remaining`;
 }
 
 export function LiveWagers() {
@@ -53,7 +51,7 @@ export function LiveWagers() {
   const ids = wagerCount ? Array.from({ length: Number(wagerCount) }, (_, index) => BigInt(Number(wagerCount) - index)) : [];
 
   const { data, isLoading } = useReadContracts({
-    contracts: ids.map(id => ({
+    contracts: ids.map((id) => ({
       address: contractAddresses.escrow!,
       abi: challengeEscrowAbi,
       functionName: 'getWager',
@@ -74,7 +72,6 @@ export function LiveWagers() {
     if (item.status !== 'success' || !item.result) return [];
     const result = item.result as unknown as LiveWagerResult;
     const status = statusLabel(Number(result.status));
-
     return [{
       id: Number(ids[index]),
       title: result.title || `Wager #${ids[index].toString()}`,
@@ -90,36 +87,54 @@ export function LiveWagers() {
     }];
   });
 
-  const walletWagers = address
+  const mine = address
     ? allWagers.filter((wager) =>
         wager.creatorAddress?.toLowerCase() === address.toLowerCase() ||
         wager.opponentAddress?.toLowerCase() === address.toLowerCase()
       )
     : [];
 
+  const active = mine.filter((wager) => wager.status === 'Created' || wager.status === 'Accepted' || wager.status === 'Disputed');
+  const history = mine.filter((wager) => wager.status === 'Resolved' || wager.status === 'Refunded');
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
         <div>
-          <p className="font-medium text-white">Live wagers</p>
-          <p className="text-slate-400">{walletWagers.length} for this wallet · {wagerCount ? wagerCount.toString() : '0'} total on-chain</p>
+          <p className="font-medium text-white">My wagers</p>
+          <p className="text-slate-400">{active.length} active · {history.length} in history</p>
+        </div>
+        <div className="text-right text-xs text-slate-400">
+          <p>{wagerCount ? wagerCount.toString() : '0'} total on-chain</p>
         </div>
       </div>
 
-      {walletWagers.length ? (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {walletWagers.map((wager) => <WagerCard key={wager.id} wager={wager} />)}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium text-white">Active</h3>
+          <span className="text-xs text-slate-500">Current flow only</span>
         </div>
-      ) : allWagers.length ? (
-        <div className="space-y-3">
-          <p className="text-sm text-slate-400">No wagers for this wallet yet. Here are the latest on-chain wagers for debugging.</p>
+        {active.length ? (
           <div className="grid gap-4 lg:grid-cols-2">
-            {allWagers.map((wager) => <WagerCard key={wager.id} wager={wager} />)}
+            {active.map((wager) => <WagerCard key={`active-${wager.id}`} wager={wager} />)}
           </div>
+        ) : (
+          <p className="text-sm text-slate-400">No active wagers for this wallet yet.</p>
+        )}
+      </div>
+
+      <details className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+        <summary className="cursor-pointer text-sm font-medium text-white">History</summary>
+        <div className="mt-4">
+          {history.length ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {history.map((wager) => <WagerCard key={`history-${wager.id}`} wager={wager} />)}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">No settled wagers yet.</p>
+          )}
         </div>
-      ) : (
-        <p className="text-sm text-slate-400">No wagers exist on-chain yet. Mint MockUSDC first, then create one.</p>
-      )}
+      </details>
     </div>
   );
 }
