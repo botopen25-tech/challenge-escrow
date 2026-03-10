@@ -53,6 +53,7 @@ export function WagerActions({ wager }: { wager: WagerView }) {
   if (role === 'viewer') return <p className="text-xs text-slate-500">View only</p>;
 
   let primaryAction: { label: string; onClick: () => void } | null = null;
+  let secondaryAction: { label: string; onClick: () => void } | null = null;
 
   if (wager.status === 'Created' && role === 'opponent') {
     primaryAction = {
@@ -78,7 +79,7 @@ export function WagerActions({ wager }: { wager: WagerView }) {
 
   if (wager.status === 'Accepted') {
     primaryAction = {
-      label: role === 'creator' ? 'I won' : 'I won',
+      label: 'I won',
       onClick: () => runWrite(
         () => writeContractAsync({
           address: contractAddresses.escrow!,
@@ -87,6 +88,19 @@ export function WagerActions({ wager }: { wager: WagerView }) {
           args: [BigInt(wager.id), role === 'creator' ? creator : opponent],
         }),
         'Winner confirmed on-chain.'
+      ),
+    };
+
+    secondaryAction = {
+      label: 'I lost',
+      onClick: () => runWrite(
+        () => writeContractAsync({
+          address: contractAddresses.escrow!,
+          abi: challengeEscrowAbi,
+          functionName: 'confirmWinner',
+          args: [BigInt(wager.id), role === 'creator' ? opponent : creator],
+        }),
+        'Loss recorded on-chain.'
       ),
     };
   }
@@ -109,9 +123,16 @@ export function WagerActions({ wager }: { wager: WagerView }) {
   return (
     <div className="space-y-3 border-t border-white/10 pt-4">
       {primaryAction ? (
-        <button className="button-secondary w-full" disabled={isPending} onClick={primaryAction.onClick} type="button">
-          {isPending ? 'Waiting for wallet...' : primaryAction.label}
-        </button>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <button className="button-secondary w-full" disabled={isPending} onClick={primaryAction.onClick} type="button">
+            {isPending ? 'Waiting for wallet...' : primaryAction.label}
+          </button>
+          {secondaryAction ? (
+            <button className="button-secondary w-full" disabled={isPending} onClick={secondaryAction.onClick} type="button">
+              {isPending ? 'Waiting for wallet...' : secondaryAction.label}
+            </button>
+          ) : null}
+        </div>
       ) : (
         <p className="text-xs text-slate-500">No action needed right now.</p>
       )}
