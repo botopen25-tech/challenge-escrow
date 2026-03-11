@@ -44,9 +44,9 @@ afterEach(() => cleanup());
 describe('frontend smoke tests', () => {
   it('renders the landing page shell', () => {
     render(<HomePage />);
-    expect(screen.getByText(/Friendly wagers/i)).toBeInTheDocument();
-    expect(screen.getByText(/Approve USDC and create challenge/i)).toBeInTheDocument();
-    expect(screen.getByText(/Your on-chain wagers/i)).toBeInTheDocument();
+    expect(screen.getByText(/Set the line\. Lock the pool\. Settle on-chain\./i)).toBeInTheDocument();
+    expect(screen.getByText(/Create a wager/i)).toBeInTheDocument();
+    expect(screen.getByText(/View active wagers/i)).toBeInTheDocument();
   });
 
   it('renders wager card details', () => {
