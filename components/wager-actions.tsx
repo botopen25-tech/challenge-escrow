@@ -5,12 +5,14 @@ import { useAccount, usePublicClient, useWriteContract } from 'wagmi';
 import { challengeEscrowAbi, contractAddresses, supportedChainId, toUsdcAmount, usdcAbi } from '@/lib/contract';
 import { baseSepoliaTxUrl } from '@/lib/explorer';
 import type { WagerView } from '@/lib/sample-data';
+import { ActionFeedback } from './action-feedback';
 
 export function WagerActions({ wager }: { wager: WagerView }) {
   const { address, chainId, isConnected } = useAccount();
   const publicClient = usePublicClient();
   const { writeContractAsync, isPending } = useWriteContract();
   const [message, setMessage] = useState('');
+  const [tone, setTone] = useState<'info' | 'success' | 'error'>('info');
   const [txHash, setTxHash] = useState<string>('');
 
   const creator = wager.creatorAddress;
@@ -26,14 +28,17 @@ export function WagerActions({ wager }: { wager: WagerView }) {
 
   function validateBaseReadiness() {
     if (!isConnected) {
+      setTone('error');
       setMessage('Connect your wallet first.');
       return false;
     }
     if (chainId !== supportedChainId) {
+      setTone('error');
       setMessage('Switch to Base Sepolia first.');
       return false;
     }
     if (!contractAddresses.escrow || !publicClient) {
+      setTone('error');
       setMessage('Refresh and try again.');
       return false;
     }
@@ -43,12 +48,16 @@ export function WagerActions({ wager }: { wager: WagerView }) {
   async function runWrite(fn: () => Promise<`0x${string}`>, success: string) {
     if (!validateBaseReadiness() || !publicClient) return;
     try {
+      setTone('info');
+      setMessage('Waiting for on-chain confirmation...');
       setTxHash('');
       const hash = await fn();
       await publicClient.waitForTransactionReceipt({ hash });
       setTxHash(hash);
+      setTone('success');
       setMessage(success);
     } catch (error) {
+      setTone('error');
       setMessage(error instanceof Error ? error.message : 'Transaction failed');
     }
   }
@@ -73,6 +82,8 @@ export function WagerActions({ wager }: { wager: WagerView }) {
       label: 'Accept wager',
       onClick: () => runWrite(async () => {
         if (!contractAddresses.usdc || !contractAddresses.escrow) throw new Error('Missing token config');
+        setTone('info');
+        setMessage('Approving USDC in your wallet...');
         const approvalHash = await writeContractAsync({
           address: contractAddresses.usdc,
           abi: usdcAbi,
@@ -80,6 +91,8 @@ export function WagerActions({ wager }: { wager: WagerView }) {
           args: [contractAddresses.escrow, stakeAmount],
         });
         await publicClient!.waitForTransactionReceipt({ hash: approvalHash });
+        setTone('info');
+        setMessage('Approval confirmed. Accept the wager in your wallet.');
         return writeContractAsync({
           address: contractAddresses.escrow,
           abi: challengeEscrowAbi,
@@ -188,8 +201,7 @@ export function WagerActions({ wager }: { wager: WagerView }) {
       ) : noActionText ? (
         <p className="text-xs text-slate-500">{noActionText}</p>
       ) : null}
-      {message ? <p className="text-xs text-slate-400 break-all">{message}</p> : null}
-      {txHash ? <a className="text-xs text-brand underline" href={baseSepoliaTxUrl(txHash)} target="_blank" rel="noreferrer">View transaction on BaseScan</a> : null}
+      {message ? <ActionFeedback tone={tone} message={message} txHash={txHash} txHref={baseSepoliaTxUrl(txHash)} /> : null}
     </div>
   );
 }

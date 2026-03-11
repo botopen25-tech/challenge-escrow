@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useState } from 'react';
 import { useAccount, usePublicClient, useWriteContract } from 'wagmi';
 import { challengeEscrowAbi, contractAddresses, defaultStake, supportedChainId, toUsdcAmount, usdcAbi } from '@/lib/contract';
 import { baseSepoliaTxUrl } from '@/lib/explorer';
+import { ActionFeedback } from './action-feedback';
 
 const initialState = {
   opponent: '',
@@ -19,6 +20,7 @@ export function CreateWagerForm() {
   const { writeContractAsync, isPending } = useWriteContract();
   const [form, setForm] = useState(initialState);
   const [message, setMessage] = useState<string>('');
+  const [tone, setTone] = useState<'info' | 'success' | 'error'>('info');
   const [txHash, setTxHash] = useState<string>('');
 
   const hasContracts = Boolean(contractAddresses.escrow && contractAddresses.usdc);
@@ -31,21 +33,25 @@ export function CreateWagerForm() {
     setTxHash('');
 
     if (!hasContracts || !contractAddresses.escrow || !contractAddresses.usdc) {
+      setTone('error');
       setMessage('Missing contract config. Set NEXT_PUBLIC_CHALLENGE_ESCROW_ADDRESS and NEXT_PUBLIC_USDC_ADDRESS.');
       return;
     }
 
     if (!isConnected) {
+      setTone('error');
       setMessage('Connect your wallet first.');
       return;
     }
 
     if (!onSupportedChain) {
+      setTone('error');
       setMessage('Switch your wallet to Base Sepolia first.');
       return;
     }
 
     if (!publicClient) {
+      setTone('error');
       setMessage('Public client unavailable. Refresh and try again.');
       return;
     }
@@ -53,7 +59,8 @@ export function CreateWagerForm() {
     try {
       const stakeAmount = toUsdcAmount(form.stake);
 
-      setMessage('Step 1/2: approving USDC...');
+      setTone('info');
+      setMessage('Approving USDC in your wallet...');
       const approvalHash = await writeContractAsync({
         address: contractAddresses.usdc,
         abi: usdcAbi,
@@ -62,7 +69,8 @@ export function CreateWagerForm() {
       });
       await publicClient.waitForTransactionReceipt({ hash: approvalHash });
 
-      setMessage('Approval confirmed. Step 2/2: create the wager in your wallet.');
+      setTone('info');
+      setMessage('Approval confirmed. Create the wager in your wallet.');
 
       const hash = await writeContractAsync({
         address: contractAddresses.escrow,
@@ -79,9 +87,11 @@ export function CreateWagerForm() {
       });
       await publicClient.waitForTransactionReceipt({ hash });
       setTxHash(hash);
+      setTone('success');
       setMessage('Wager confirmed on-chain.');
       setForm(initialState);
     } catch (error) {
+      setTone('error');
       setMessage(error instanceof Error ? error.message : 'Transaction failed');
     }
   }
@@ -126,8 +136,7 @@ export function CreateWagerForm() {
       <button className="button-primary w-full" disabled={!ready || isPending} type="submit">
         {isPending ? 'Waiting for wallet...' : 'Approve USDC and create challenge'}
       </button>
-      {message ? <p className="text-sm text-slate-300 break-all">{message}</p> : null}
-      {txHash ? <a className="text-sm text-brand underline" href={baseSepoliaTxUrl(txHash)} target="_blank" rel="noreferrer">View create transaction on BaseScan</a> : null}
+      {message ? <ActionFeedback tone={tone} message={message} txHash={txHash} txHref={baseSepoliaTxUrl(txHash)} /> : null}
     </form>
   );
 }
