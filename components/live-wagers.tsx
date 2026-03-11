@@ -50,16 +50,70 @@ function voteLabel(result: LiveWagerResult, who: 'creator' | 'opponent') {
 }
 
 function settlementState(result: LiveWagerResult, status: WagerView['status']) {
-  if (status === 'Resolved') return 'Agreed and paid';
-  if (status === 'Refunded') return 'Refunded';
-  if (status === 'Disputed') return 'Disputed';
-  if (status === 'Created') return 'Waiting for opponent';
+  if (status === 'Resolved') {
+    return {
+      label: 'Settled on-chain',
+      detail: 'Both sides agreed and the payout already went out.',
+      step: 'Finished',
+    };
+  }
+  if (status === 'Refunded') {
+    return {
+      label: 'Refunded',
+      detail: 'Funds were returned instead of paying a winner.',
+      step: 'Finished',
+    };
+  }
+  if (status === 'Disputed') {
+    return {
+      label: 'Disputed',
+      detail: 'The submitted results conflict. Use refund or dispute handling.',
+      step: 'Needs resolution',
+    };
+  }
+  if (status === 'Created') {
+    return {
+      label: 'Waiting on opponent',
+      detail: 'The opponent still needs to approve tokens and accept the wager.',
+      step: 'Accept',
+    };
+  }
 
   const creatorVote = voteLabel(result, 'creator');
   const opponentVote = voteLabel(result, 'opponent');
-  if (creatorVote === 'Waiting' || opponentVote === 'Waiting') return 'Waiting on result';
-  if (creatorVote === opponentVote) return 'Agreed';
-  return 'Conflicting votes';
+  if (creatorVote === 'Waiting' && opponentVote === 'Waiting') {
+    return {
+      label: 'Waiting on both votes',
+      detail: 'Neither side has submitted a result yet.',
+      step: 'Vote',
+    };
+  }
+  if (creatorVote === 'Waiting') {
+    return {
+      label: 'Waiting on creator vote',
+      detail: 'The opponent submitted a result. Creator still needs to vote.',
+      step: 'Vote',
+    };
+  }
+  if (opponentVote === 'Waiting') {
+    return {
+      label: 'Waiting on opponent vote',
+      detail: 'The creator submitted a result. Opponent still needs to vote.',
+      step: 'Vote',
+    };
+  }
+  if (creatorVote === opponentVote) {
+    return {
+      label: 'Votes agree',
+      detail: 'Both sides submitted the same result on-chain.',
+      step: 'Settling',
+    };
+  }
+  return {
+    label: 'Conflicting votes',
+    detail: 'Each side submitted a different outcome. This will need dispute handling.',
+    step: 'Dispute',
+  };
 }
 
 export function LiveWagers() {
@@ -100,6 +154,7 @@ export function LiveWagers() {
     const status = statusLabel(Number(result.status));
     const creatorVote = voteLabel(result, 'creator');
     const opponentVote = voteLabel(result, 'opponent');
+    const state = settlementState(result, status);
     const myVote = !address ? undefined : result.creator.toLowerCase() === address.toLowerCase() ? creatorVote : result.opponent.toLowerCase() === address.toLowerCase() ? opponentVote : undefined;
     return [{
       id: Number(ids[index]),
@@ -113,7 +168,9 @@ export function LiveWagers() {
       creatorVote,
       opponentVote,
       myVote,
-      settlementState: settlementState(result, status),
+      settlementState: state.label,
+      settlementDetail: state.detail,
+      nextStep: state.step,
       status,
       deadline: buildDeadline(result.createdAt, result.acceptedAt, result.responseWindow, status),
       outcomeHint: outcomeHintForStatus(status),

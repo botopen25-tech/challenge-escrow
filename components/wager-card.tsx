@@ -42,8 +42,12 @@ export function WagerCard({ wager }: { wager: WagerView }) {
       </dl>
 
       <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm">
-        <p className="font-medium text-white">Current state</p>
-        <p className="mt-1 text-slate-300">{wager.settlementState ?? wager.outcomeHint}</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="font-medium text-white">Current state</p>
+          {wager.nextStep ? <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-300">{wager.nextStep}</span> : null}
+        </div>
+        <p className="mt-1 text-white">{wager.settlementState ?? wager.outcomeHint}</p>
+        <p className="mt-2 text-xs text-slate-400">{wager.settlementDetail ?? wager.outcomeHint}</p>
         <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-slate-400 sm:grid-cols-3">
           <div><span className="text-slate-500">Your pick:</span> {wager.myVote ?? 'Waiting'}</div>
           <div><span className="text-slate-500">Creator:</span> {wager.creatorVote ?? 'Waiting'}</div>

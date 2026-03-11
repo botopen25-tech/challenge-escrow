@@ -48,6 +48,6 @@ describe('frontend smoke tests', () => {
     render(<WagerCard wager={sampleWagers[0]} />);
     expect(screen.getByText(/10k weekend run/i)).toBeInTheDocument();
     expect(screen.getByText(/Accepted/i)).toBeInTheDocument();
-    expect(screen.getByText(/Both players need to confirm winner or tie/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Both players need to confirm winner or tie/i).length).toBeGreaterThan(0);
   });
 });

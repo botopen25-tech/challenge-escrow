@@ -11,6 +11,8 @@ export type WagerView = {
   opponentVote?: string;
   myVote?: string;
   settlementState?: string;
+  settlementDetail?: string;
+  nextStep?: string;
   status: 'Created' | 'Accepted' | 'Resolved' | 'Refunded' | 'Disputed';
   deadline: string;
   outcomeHint: string;
