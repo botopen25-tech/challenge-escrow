@@ -50,7 +50,10 @@ export function WagerActions({ wager }: { wager: WagerView }) {
   }
 
   if (!creator || !opponent) return null;
-  if (role === 'viewer') return <p className="text-xs text-slate-500">View only</p>;
+
+  if (role === 'viewer') {
+    return <p className="text-xs text-amber-300">This wallet is not part of this wager. Switch to the creator or opponent wallet to take action.</p>;
+  }
 
   const hasSubmittedResult = Boolean(wager.myVote && wager.myVote !== 'Waiting');
   let primaryAction: { label: string; onClick: () => void } | null = null;
@@ -133,6 +136,14 @@ export function WagerActions({ wager }: { wager: WagerView }) {
     };
   }
 
+  const noActionText = role === 'creator' && wager.status === 'Created'
+    ? 'You created this wager. Waiting for your opponent to accept.'
+    : role === 'opponent' && wager.status === 'Created'
+      ? 'You are the opponent on this wager. Accept when you are ready.'
+      : hasSubmittedResult
+        ? null
+        : 'No action needed right now.';
+
   return (
     <div className="space-y-3 border-t border-white/10 pt-4">
       {hasSubmittedResult && wager.status === 'Accepted' ? (
@@ -154,9 +165,9 @@ export function WagerActions({ wager }: { wager: WagerView }) {
             </button>
           ) : null}
         </div>
-      ) : hasSubmittedResult ? null : (
-        <p className="text-xs text-slate-500">No action needed right now.</p>
-      )}
+      ) : noActionText ? (
+        <p className="text-xs text-slate-500">{noActionText}</p>
+      ) : null}
       {message ? <p className="text-xs text-slate-400 break-all">{message}</p> : null}
     </div>
   );

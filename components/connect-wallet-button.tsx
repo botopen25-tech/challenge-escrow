@@ -16,14 +16,17 @@ export function ConnectWalletButton() {
 
   if (isConnected && chainId !== supportedChainId) {
     return (
-      <button
-        className="button-primary"
-        onClick={() => switchChain({ chainId: supportedChainId })}
-        disabled={isSwitching}
-        type="button"
-      >
-        {isSwitching ? 'Switching...' : 'Switch to Base Sepolia'}
-      </button>
+      <div className="space-y-2 text-right">
+        <button
+          className="button-primary"
+          onClick={() => switchChain({ chainId: supportedChainId })}
+          disabled={isSwitching}
+          type="button"
+        >
+          {isSwitching ? 'Switching...' : 'Switch to Base Sepolia'}
+        </button>
+        <p className="text-xs text-amber-300">Wrong network. ChallengeEscrow only works on Base Sepolia right now.</p>
+      </div>
     );
   }
 
@@ -40,13 +43,16 @@ export function ConnectWalletButton() {
   }
 
   return (
-    <button
-      className="button-primary"
-      onClick={() => connect({ connector: injected() })}
-      disabled={isPending}
-      type="button"
-    >
-      {isPending ? 'Connecting...' : 'Connect MetaMask'}
-    </button>
+    <div className="space-y-2 text-right">
+      <button
+        className="button-primary"
+        onClick={() => connect({ connector: injected() })}
+        disabled={isPending}
+        type="button"
+      >
+        {isPending ? 'Connecting...' : 'Connect MetaMask'}
+      </button>
+      <p className="text-xs text-slate-400">Use the wallet that created or received the wager so the right actions unlock.</p>
+    </div>
   );
 }
