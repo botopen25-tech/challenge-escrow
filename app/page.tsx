@@ -1,5 +1,6 @@
 import { ConnectWalletButton } from '@/components/connect-wallet-button';
 import { CreateWagerForm } from '@/components/create-wager-form';
+import { HybridChallengeList } from '@/components/hybrid-challenge-list';
 import { HybridResultDemo } from '@/components/hybrid-result-demo';
 import { LiveWagers } from '@/components/live-wagers';
 import { MintUsdcCard } from '@/components/mint-usdc-card';
@@ -31,6 +32,7 @@ export default function HomePage() {
       </div>
 
       <HybridResultDemo />
+      <HybridChallengeList />
 
       <section className="space-y-4">
         <div className="flex items-end justify-between gap-3">
