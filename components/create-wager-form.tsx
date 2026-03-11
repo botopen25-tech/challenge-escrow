@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { useAccount, usePublicClient, useWriteContract } from 'wagmi';
 import { challengeEscrowAbi, contractAddresses, defaultStake, supportedChainId, toUsdcAmount, usdcAbi } from '@/lib/contract';
+import { baseSepoliaTxUrl } from '@/lib/explorer';
 
 const initialState = {
   opponent: '',
@@ -18,6 +19,7 @@ export function CreateWagerForm() {
   const { writeContractAsync, isPending } = useWriteContract();
   const [form, setForm] = useState(initialState);
   const [message, setMessage] = useState<string>('');
+  const [txHash, setTxHash] = useState<string>('');
 
   const hasContracts = Boolean(contractAddresses.escrow && contractAddresses.usdc);
   const onSupportedChain = chainId === supportedChainId;
@@ -26,6 +28,7 @@ export function CreateWagerForm() {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setTxHash('');
 
     if (!hasContracts || !contractAddresses.escrow || !contractAddresses.usdc) {
       setMessage('Missing contract config. Set NEXT_PUBLIC_CHALLENGE_ESCROW_ADDRESS and NEXT_PUBLIC_USDC_ADDRESS.');
@@ -75,7 +78,8 @@ export function CreateWagerForm() {
         ],
       });
       await publicClient.waitForTransactionReceipt({ hash });
-      setMessage(`Wager confirmed on-chain: ${hash}`);
+      setTxHash(hash);
+      setMessage('Wager confirmed on-chain.');
       setForm(initialState);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Transaction failed');
@@ -123,6 +127,7 @@ export function CreateWagerForm() {
         {isPending ? 'Waiting for wallet...' : 'Approve USDC and create challenge'}
       </button>
       {message ? <p className="text-sm text-slate-300 break-all">{message}</p> : null}
+      {txHash ? <a className="text-sm text-brand underline" href={baseSepoliaTxUrl(txHash)} target="_blank" rel="noreferrer">View create transaction on BaseScan</a> : null}
     </form>
   );
 }

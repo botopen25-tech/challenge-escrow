@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAccount, usePublicClient, useWriteContract } from 'wagmi';
 import { challengeEscrowAbi, contractAddresses, supportedChainId, toUsdcAmount, usdcAbi } from '@/lib/contract';
+import { baseSepoliaTxUrl } from '@/lib/explorer';
 import type { WagerView } from '@/lib/sample-data';
 
 export function WagerActions({ wager }: { wager: WagerView }) {
@@ -10,6 +11,7 @@ export function WagerActions({ wager }: { wager: WagerView }) {
   const publicClient = usePublicClient();
   const { writeContractAsync, isPending } = useWriteContract();
   const [message, setMessage] = useState('');
+  const [txHash, setTxHash] = useState<string>('');
 
   const creator = wager.creatorAddress;
   const opponent = wager.opponentAddress;
@@ -41,8 +43,10 @@ export function WagerActions({ wager }: { wager: WagerView }) {
   async function runWrite(fn: () => Promise<`0x${string}`>, success: string) {
     if (!validateBaseReadiness() || !publicClient) return;
     try {
+      setTxHash('');
       const hash = await fn();
       await publicClient.waitForTransactionReceipt({ hash });
+      setTxHash(hash);
       setMessage(success);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Transaction failed');
@@ -185,6 +189,7 @@ export function WagerActions({ wager }: { wager: WagerView }) {
         <p className="text-xs text-slate-500">{noActionText}</p>
       ) : null}
       {message ? <p className="text-xs text-slate-400 break-all">{message}</p> : null}
+      {txHash ? <a className="text-xs text-brand underline" href={baseSepoliaTxUrl(txHash)} target="_blank" rel="noreferrer">View transaction on BaseScan</a> : null}
     </div>
   );
 }
