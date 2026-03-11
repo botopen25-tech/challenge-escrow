@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { CreateHybridChallengeInput, HybridChallenge } from './hybrid-types';
+import { CreateHybridChallengeInput, HybridChallenge, HybridResultChoice } from './hybrid-types';
 import { supportedChainId, contractAddresses } from './contract';
 
 const store = new Map<string, HybridChallenge>();
@@ -38,8 +38,34 @@ export function createChallenge(input: CreateHybridChallengeInput) {
     createdAt: now,
     updatedAt: now,
     escrowContractAddress: contractAddresses.escrow,
+    resultAgreement: 'pending',
   };
 
   store.set(id, challenge);
   return challenge;
+}
+
+export function submitChallengeResult(id: string, account: `0x${string}`, choice: HybridResultChoice) {
+  const challenge = store.get(id);
+  if (!challenge) return { error: 'not_found' as const };
+
+  if (account.toLowerCase() === challenge.creatorAddress.toLowerCase()) {
+    challenge.creatorResultChoice = choice;
+  } else if (challenge.opponentAddress && account.toLowerCase() === challenge.opponentAddress.toLowerCase()) {
+    challenge.opponentResultChoice = choice;
+  } else {
+    return { error: 'unauthorized' as const };
+  }
+
+  if (challenge.creatorResultChoice && challenge.opponentResultChoice) {
+    challenge.resultAgreement = challenge.creatorResultChoice === challenge.opponentResultChoice ? 'agreed' : 'conflict';
+    challenge.status = challenge.resultAgreement === 'agreed' ? 'awaiting_settlement' : 'disputed';
+  } else {
+    challenge.resultAgreement = 'pending';
+    challenge.status = 'active';
+  }
+
+  challenge.updatedAt = new Date().toISOString();
+  store.set(id, challenge);
+  return { challenge };
 }

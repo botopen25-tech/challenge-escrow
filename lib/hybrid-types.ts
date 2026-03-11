@@ -9,6 +9,8 @@ export type HybridChallengeStatus =
   | 'disputed'
   | 'expired';
 
+export type HybridResultChoice = 'creator_won' | 'opponent_won' | 'tie';
+
 export type HybridChallenge = {
   id: string;
   slug: string;
@@ -28,6 +30,9 @@ export type HybridChallenge = {
   createTxHash?: `0x${string}`;
   acceptTxHash?: `0x${string}`;
   settleTxHash?: `0x${string}`;
+  creatorResultChoice?: HybridResultChoice;
+  opponentResultChoice?: HybridResultChoice;
+  resultAgreement?: 'pending' | 'agreed' | 'conflict';
 };
 
 export type CreateHybridChallengeInput = {
