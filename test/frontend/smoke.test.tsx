@@ -1,4 +1,9 @@
 import { cleanup, render, screen } from '@testing-library/react';
+
+Object.defineProperty(window, 'confirm', {
+  writable: true,
+  value: () => true,
+});
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@rainbow-me/rainbowkit', () => ({
@@ -49,5 +54,6 @@ describe('frontend smoke tests', () => {
     expect(screen.getByText(/10k weekend run/i)).toBeInTheDocument();
     expect(screen.getByText(/Accepted/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Both players need to confirm winner or tie/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Connect a wallet to see whether you are the creator or the opponent/i)).toBeInTheDocument();
   });
 });

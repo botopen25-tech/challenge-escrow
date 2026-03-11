@@ -49,6 +49,10 @@ export function WagerActions({ wager }: { wager: WagerView }) {
     }
   }
 
+  function confirmResultAction(label: string) {
+    return window.confirm(`Submit \"${label}\" for this wager? This records your result on-chain.`);
+  }
+
   if (!creator || !opponent) return null;
 
   if (role === 'viewer') {
@@ -85,39 +89,48 @@ export function WagerActions({ wager }: { wager: WagerView }) {
   if (wager.status === 'Accepted' && !hasSubmittedResult) {
     primaryAction = {
       label: 'I won',
-      onClick: () => runWrite(
-        () => writeContractAsync({
-          address: contractAddresses.escrow!,
-          abi: challengeEscrowAbi,
-          functionName: 'confirmWinner',
-          args: [BigInt(wager.id), role === 'creator' ? creator : opponent],
-        }),
-        'Winner confirmed on-chain.'
-      ),
+      onClick: () => {
+        if (!confirmResultAction('I won')) return;
+        return runWrite(
+          () => writeContractAsync({
+            address: contractAddresses.escrow!,
+            abi: challengeEscrowAbi,
+            functionName: 'confirmWinner',
+            args: [BigInt(wager.id), role === 'creator' ? creator : opponent],
+          }),
+          'Winner confirmed on-chain.'
+        );
+      },
     };
     secondaryAction = {
       label: 'I lost',
-      onClick: () => runWrite(
-        () => writeContractAsync({
-          address: contractAddresses.escrow!,
-          abi: challengeEscrowAbi,
-          functionName: 'confirmWinner',
-          args: [BigInt(wager.id), role === 'creator' ? opponent : creator],
-        }),
-        'Loss recorded on-chain.'
-      ),
+      onClick: () => {
+        if (!confirmResultAction('I lost')) return;
+        return runWrite(
+          () => writeContractAsync({
+            address: contractAddresses.escrow!,
+            abi: challengeEscrowAbi,
+            functionName: 'confirmWinner',
+            args: [BigInt(wager.id), role === 'creator' ? opponent : creator],
+          }),
+          'Loss recorded on-chain.'
+        );
+      },
     };
     tertiaryAction = {
       label: 'Tie',
-      onClick: () => runWrite(
-        () => writeContractAsync({
-          address: contractAddresses.escrow!,
-          abi: challengeEscrowAbi,
-          functionName: 'confirmTie',
-          args: [BigInt(wager.id)],
-        }),
-        'Tie recorded on-chain.'
-      ),
+      onClick: () => {
+        if (!confirmResultAction('Tie')) return;
+        return runWrite(
+          () => writeContractAsync({
+            address: contractAddresses.escrow!,
+            abi: challengeEscrowAbi,
+            functionName: 'confirmTie',
+            args: [BigInt(wager.id)],
+          }),
+          'Tie recorded on-chain.'
+        );
+      },
     };
   }
 
@@ -146,6 +159,9 @@ export function WagerActions({ wager }: { wager: WagerView }) {
 
   return (
     <div className="space-y-3 border-t border-white/10 pt-4">
+      {wager.status === 'Accepted' && !hasSubmittedResult ? (
+        <p className="text-xs text-slate-400">Submitting a result records your vote on-chain. Double-check before confirming.</p>
+      ) : null}
       {hasSubmittedResult && wager.status === 'Accepted' ? (
         <p className="text-xs text-slate-400">You already submitted: <span className="font-medium text-white">{wager.myVote}</span></p>
       ) : null}
