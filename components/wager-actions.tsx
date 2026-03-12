@@ -29,12 +29,12 @@ export function WagerActions({ wager }: { wager: WagerView }) {
   function validateBaseReadiness() {
     if (!isConnected) {
       setTone('error');
-      setMessage('Connect your wallet first.');
+      setMessage('Connect the creator or opponent wallet for this wager first.');
       return false;
     }
     if (chainId !== supportedChainId) {
       setTone('error');
-      setMessage('Switch to Base Sepolia first.');
+      setMessage('Wrong network. Switch your wallet to Base Sepolia before taking this action.');
       return false;
     }
     if (!contractAddresses.escrow || !publicClient) {
@@ -69,7 +69,7 @@ export function WagerActions({ wager }: { wager: WagerView }) {
   if (!creator || !opponent) return null;
 
   if (role === 'viewer') {
-    return <p className="text-xs text-amber-300">This wallet is not part of this wager. Switch to the creator or opponent wallet to take action.</p>;
+    return <p className="text-xs text-amber-300">This wallet does not match either participant on this wager. Switch to the creator wallet ({wager.creator}) or opponent wallet ({wager.opponent}) to take action.</p>;
   }
 
   const hasSubmittedResult = Boolean(wager.myVote && wager.myVote !== 'Waiting');
