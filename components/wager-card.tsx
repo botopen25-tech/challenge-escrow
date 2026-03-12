@@ -54,7 +54,23 @@ export function WagerCard({ wager }: { wager: WagerView }) {
           <p className="font-medium text-white">Current state</p>
           {wager.nextStep ? <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-300">{wager.nextStep}</span> : null}
         </div>
-        <p className="mt-1 text-white">{wager.settlementState ?? wager.outcomeHint}</p>
+        <p className="mt-1 text-white">{
+  wager.settlementState === 'waitingOnOpponent'
+    ? 'Waiting on opponent'
+  : wager.settlementState === 'waitingOnYourVote'
+    ? 'Waiting on your vote'
+  : wager.settlementState === 'waitingOnOpponentVote'
+    ? 'Waiting on opponent vote'
+  : wager.settlementState === 'agreed'
+    ? 'Agreed'
+  : wager.settlementState === 'disputed'
+    ? 'Disputed'
+  : wager.settlementState === 'refunded'
+    ? 'Refunded'
+  : wager.settlementState === 'resolved'
+    ? 'Resolved'
+  : wager.outcomeHint
+}</p>
         <p className="mt-2 text-xs text-slate-400">{wager.settlementDetail ?? wager.outcomeHint}</p>
         <div className="mt-3 rounded-xl border border-white/10 bg-slate-950/30 px-3 py-2 text-xs text-slate-300">
           <span className="font-medium text-white">Wallet role:</span> {role ?? 'Viewer'} · {roleGuidance}
