@@ -6,6 +6,12 @@ import { WagerView, shortenAddress } from '@/lib/sample-data';
 import { StatusPill } from './status-pill';
 import { WagerActions } from './wager-actions';
 
+type TimelineStep = {
+  label: string;
+  detail: string;
+  state: 'complete' | 'current' | 'upcoming';
+};
+
 function formatSettlementLabel(settlementState?: string, fallback?: string) {
   switch (settlementState) {
     case 'waitingOnOpponent':
@@ -27,6 +33,120 @@ function formatSettlementLabel(settlementState?: string, fallback?: string) {
   }
 }
 
+function getStateCopy(wager: WagerView, role: 'Creator' | 'Opponent' | null) {
+  const state = formatSettlementLabel(wager.settlementState, wager.outcomeHint) ?? 'In progress';
+
+  if (wager.status === 'Created') {
+    return {
+      headline: 'Waiting on opponent',
+      helper: role === 'Opponent'
+        ? 'You are the missing step right now. Accept the wager to lock both sides in and start the challenge.'
+        : 'Nothing settles yet. The opponent still needs to accept before funds lock and the challenge officially starts.',
+    };
+  }
+
+  if (wager.status === 'Resolved') {
+    return {
+      headline: 'Resolved',
+      helper: 'Settlement finished on-chain. The agreed result has already been paid out from escrow.',
+    };
+  }
+
+  if (wager.status === 'Refunded') {
+    return {
+      headline: 'Refunded',
+      helper: 'This wager closed without a winner payout. Funds were returned from escrow instead.',
+    };
+  }
+
+  if (wager.status === 'Disputed') {
+    return {
+      headline: 'Disputed',
+      helper: 'The current votes do not line up cleanly. The next step is dispute or timeout refund handling, not another normal settlement vote.',
+    };
+  }
+
+  switch (wager.settlementState) {
+    case 'waitingOnYourVote':
+      return {
+        headline: 'Waiting on your vote',
+        helper: 'You are up. Submit your result on-chain to move this wager toward agreement or dispute handling.',
+      };
+    case 'waitingOnOpponentVote':
+      return {
+        headline: 'Waiting on opponent vote',
+        helper: 'You already voted. Now the opponent needs to submit their result before this can settle.',
+      };
+    case 'agreed':
+      return {
+        headline: 'Agreed',
+        helper: 'Both sides submitted the same result. The wager is lined up for final settlement on-chain.',
+      };
+    case 'disputed':
+      return {
+        headline: 'Disputed',
+        helper: 'The submitted outcomes conflict. Expect dispute or timeout handling next instead of an automatic payout.',
+      };
+    default:
+      return {
+        headline: state,
+        helper: wager.settlementDetail ?? wager.outcomeHint,
+      };
+  }
+}
+
+function getTimelineSteps(wager: WagerView): TimelineStep[] {
+  const isCreated = wager.status === 'Created';
+  const isAccepted = wager.status === 'Accepted';
+  const isResolved = wager.status === 'Resolved';
+  const isRefunded = wager.status === 'Refunded';
+  const isDisputed = wager.status === 'Disputed';
+  const isFinished = isResolved || isRefunded;
+
+  return [
+    {
+      label: 'Created',
+      detail: 'Challenge terms were posted.',
+      state: 'complete',
+    },
+    {
+      label: 'Accepted',
+      detail: isCreated ? 'Waiting for the opponent to lock in.' : 'Both sides are locked into escrow.',
+      state: isCreated ? 'current' : 'complete',
+    },
+    {
+      label: isDisputed ? 'Disputed' : 'Result votes',
+      detail: isAccepted
+        ? wager.settlementState === 'waitingOnYourVote'
+          ? 'Your vote is the next action.'
+          : wager.settlementState === 'waitingOnOpponentVote'
+            ? 'Opponent vote is the next action.'
+            : wager.settlementState === 'agreed'
+              ? 'Both votes match.'
+              : wager.settlementState === 'disputed'
+                ? 'Votes conflict and need fallback handling.'
+                : 'Players confirm winner or tie.'
+        : isDisputed
+          ? 'Votes or timing forced dispute handling.'
+          : isFinished
+            ? 'Result voting is complete.'
+            : 'Voting unlocks after acceptance.',
+      state: isAccepted || isDisputed ? 'current' : isFinished ? 'complete' : 'upcoming',
+    },
+    {
+      label: isRefunded ? 'Refunded' : 'Settled',
+      detail: isResolved
+        ? 'Winner paid from escrow.'
+        : isRefunded
+          ? 'Funds returned from escrow.'
+          : isDisputed
+            ? 'Waiting on dispute or timeout resolution.'
+            : 'Final on-chain outcome.',
+      state: isFinished ? 'complete' : isDisputed ? 'current' : 'upcoming',
+    },
+  ];
+}
+
 export function WagerCard({ wager }: { wager: WagerView }) {
   const { address, chainId, isConnected } = useAccount();
   const role = !address
@@ -40,6 +160,8 @@ export function WagerCard({ wager }: { wager: WagerView }) {
   const creatorLabel = wager.creatorAddress ? shortenAddress(wager.creatorAddress) : wager.creator;
   const opponentLabel = wager.opponentAddress ? shortenAddress(wager.opponentAddress) : wager.opponent;
   const isWrongNetwork = isConnected && chainId !== supportedChainId;
+  const stateCopy = getStateCopy(wager, role);
+  const timelineSteps = getTimelineSteps(wager);
 
   const roleGuidance = !isConnected
     ? 'Connect the wallet that created or received this challenge to unlock the right actions.'
@@ -92,11 +214,45 @@ export function WagerCard({ wager }: { wager: WagerView }) {
 
       <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm">
         <div className="flex items-center justify-between gap-3">
-          <p className="font-medium text-white">Current state</p>
+          <div>
+            <p className="font-medium text-white">Current state</p>
+            <p className="mt-1 text-lg font-semibold text-white">{stateCopy.headline}</p>
+          </div>
           {wager.nextStep ? <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-300">{wager.nextStep}</span> : null}
         </div>
-        <p className="mt-1 text-white">{formatSettlementLabel(wager.settlementState, wager.outcomeHint)}</p>
-        <p className="mt-2 text-xs text-slate-400">{wager.settlementDetail ?? wager.outcomeHint}</p>
+        <p className="mt-2 text-sm text-slate-300">{stateCopy.helper}</p>
+        <p className="mt-2 text-xs text-slate-500">{wager.settlementDetail ?? wager.outcomeHint}</p>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-4">
+          {timelineSteps.map((step, index) => {
+            const isCurrent = step.state === 'current';
+            const isComplete = step.state === 'complete';
+            return (
+              <div
+                key={`${step.label}-${index}`}
+                className={`rounded-2xl border px-3 py-3 ${
+                  isComplete
+                    ? 'border-emerald-400/30 bg-emerald-500/10'
+                    : isCurrent
+                      ? 'border-brand/40 bg-brand/10'
+                      : 'border-white/10 bg-slate-950/30'
+                }`}
+              >
+                <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                  <span
+                    className={`inline-block h-2.5 w-2.5 rounded-full ${
+                      isComplete ? 'bg-emerald-300' : isCurrent ? 'bg-brand' : 'bg-slate-600'
+                    }`}
+                  />
+                  {step.state}
+                </div>
+                <p className="mt-2 font-medium text-white">{step.label}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-400">{step.detail}</p>
+              </div>
+            );
+          })}
+        </div>
+
         <div className={`mt-3 rounded-xl border px-3 py-2 text-xs ${isWrongNetwork ? 'border-amber-500/30 bg-amber-500/10 text-amber-100' : 'border-white/10 bg-slate-950/30 text-slate-300'}`}>
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium text-white">Wallet role:</span>
