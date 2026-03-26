@@ -16,6 +16,8 @@ function formatSettlementLabel(settlementState?: string, fallback?: string) {
   switch (settlementState) {
     case 'waitingOnOpponent':
       return 'Waiting on opponent';
+    case 'awaitingVotes':
+      return 'Waiting on votes';
     case 'waitingOnYourVote':
       return 'Waiting on your vote';
     case 'waitingOnOpponentVote':
@@ -67,6 +69,13 @@ function getStateCopy(wager: WagerView, role: 'Creator' | 'Opponent' | null) {
   }
 
   switch (wager.settlementState) {
+    case 'awaitingVotes':
+      return {
+        headline: 'Waiting on votes',
+        helper: role
+          ? 'The wager is live, but nobody has submitted a result yet. Once one side votes, the next action will become obvious here.'
+          : 'The wager is live, but neither side has submitted a result yet.',
+      };
     case 'waitingOnYourVote':
       return {
         headline: 'Waiting on your vote',
@@ -119,6 +128,8 @@ function getTimelineSteps(wager: WagerView): TimelineStep[] {
       detail: isAccepted
         ? wager.settlementState === 'waitingOnYourVote'
           ? 'Your vote is the next action.'
+          : wager.settlementState === 'awaitingVotes'
+            ? 'Neither side has voted yet.'
           : wager.settlementState === 'waitingOnOpponentVote'
             ? 'Opponent vote is the next action.'
             : wager.settlementState === 'agreed'
