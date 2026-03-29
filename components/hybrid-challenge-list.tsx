@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { baseSepoliaAddressUrl, baseSepoliaTxUrl } from '@/lib/explorer';
 import type { HybridChallenge } from '@/lib/hybrid-types';
 
 function labelForStatus(status: HybridChallenge['status']) {
@@ -20,6 +21,21 @@ function labelForStatus(status: HybridChallenge['status']) {
 function short(address?: string) {
   if (!address) return '—';
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function ExplorerLink({ href, label }: { href?: string; label: string }) {
+  if (!href) return null;
+
+  return (
+    <a
+      className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300 transition hover:bg-white/10 hover:text-white"
+      href={href}
+      rel="noreferrer"
+      target="_blank"
+    >
+      {label}
+    </a>
+  );
 }
 
 export function HybridChallengeList() {
@@ -85,6 +101,31 @@ export function HybridChallengeList() {
                 <p className="text-slate-500">Opponent</p>
                 <p className="mt-1 text-white">{short(challenge.opponentAddress)}</p>
               </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/30 px-3 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Explorer links</p>
+                  <p className="mt-1 text-sm text-slate-300">Verify contract and transaction history on BaseScan.</p>
+                </div>
+                {challenge.onchainWagerId ? (
+                  <span className="rounded-full bg-brand/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-brand">
+                    Wager #{challenge.onchainWagerId}
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <ExplorerLink href={baseSepoliaAddressUrl(challenge.escrowContractAddress)} label="View contract" />
+                <ExplorerLink href={baseSepoliaTxUrl(challenge.createTxHash)} label="Create tx" />
+                <ExplorerLink href={baseSepoliaTxUrl(challenge.acceptTxHash)} label="Accept tx" />
+                <ExplorerLink href={baseSepoliaTxUrl(challenge.settleTxHash)} label="Settle tx" />
+              </div>
+
+              {!challenge.createTxHash && !challenge.acceptTxHash && !challenge.settleTxHash ? (
+                <p className="mt-3 text-xs text-slate-500">Transaction links will appear here after create, accept, and settle steps are recorded.</p>
+              ) : null}
             </div>
           </article>
         ))}
