@@ -18,6 +18,8 @@ type StateCopy = {
   helper: string;
   nextStepLabel: string;
   nextStepDetail: string;
+  summaryLabel: string;
+  summaryTone: 'neutral' | 'success' | 'warning' | 'danger';
 };
 
 function formatSettlementLabel(settlementState?: string, fallback?: string) {
@@ -57,6 +59,8 @@ function getStateCopy(wager: WagerView, role: 'Creator' | 'Opponent' | null): St
       nextStepDetail: role === 'Opponent'
         ? 'Approve USDC and accept the wager.'
         : 'Wait for the opponent to approve USDC and accept.',
+      summaryLabel: 'Escrow is not funded by both sides yet',
+      summaryTone: 'warning',
     };
   }
 
@@ -67,6 +71,8 @@ function getStateCopy(wager: WagerView, role: 'Creator' | 'Opponent' | null): St
       helper: 'Settlement finished on-chain. The agreed result has already been paid out from escrow.',
       nextStepLabel: 'What happens next',
       nextStepDetail: 'Nothing else is required. This wager is finished.',
+      summaryLabel: 'Winner payout completed on-chain',
+      summaryTone: 'success',
     };
   }
 
@@ -77,6 +83,8 @@ function getStateCopy(wager: WagerView, role: 'Creator' | 'Opponent' | null): St
       helper: 'Funds were returned from escrow instead of being paid to one side.',
       nextStepLabel: 'What happens next',
       nextStepDetail: 'Nothing else is required. This wager is closed.',
+      summaryLabel: 'Funds returned from escrow',
+      summaryTone: 'warning',
     };
   }
 
@@ -87,6 +95,8 @@ function getStateCopy(wager: WagerView, role: 'Creator' | 'Opponent' | null): St
       helper: 'The current votes do not line up cleanly. The next step is dispute or timeout refund handling, not another normal settlement vote.',
       nextStepLabel: 'Next action',
       nextStepDetail: 'Use the refund/dispute path that is currently available on-chain.',
+      summaryLabel: 'Votes conflict, so normal settlement is blocked',
+      summaryTone: 'danger',
     };
   }
 
@@ -100,6 +110,8 @@ function getStateCopy(wager: WagerView, role: 'Creator' | 'Opponent' | null): St
           : 'The wager is live, but neither side has submitted a result yet.',
         nextStepLabel: role ? 'Next action for you' : 'Next action',
         nextStepDetail: role ? 'Submit your result when the challenge is over.' : 'A participant needs to submit the first result vote.',
+        summaryLabel: 'Challenge is active and waiting for the first settlement vote',
+        summaryTone: 'neutral',
       };
     case 'waitingOnYourVote':
       return {
@@ -108,6 +120,8 @@ function getStateCopy(wager: WagerView, role: 'Creator' | 'Opponent' | null): St
         helper: 'Submit your result on-chain to move this wager toward agreement or dispute handling.',
         nextStepLabel: 'Next action for you',
         nextStepDetail: 'Submit your result vote on-chain.',
+        summaryLabel: 'Settlement is blocked until you vote',
+        summaryTone: 'warning',
       };
     case 'waitingOnOpponentVote':
       return {
@@ -116,6 +130,8 @@ function getStateCopy(wager: WagerView, role: 'Creator' | 'Opponent' | null): St
         helper: 'You already voted. Now the opponent needs to submit their result before this can settle.',
         nextStepLabel: 'Next action',
         nextStepDetail: 'Wait for the opponent to submit their result vote.',
+        summaryLabel: 'Your side is done; waiting on the other participant',
+        summaryTone: 'neutral',
       };
     case 'agreed':
       return {
@@ -124,6 +140,8 @@ function getStateCopy(wager: WagerView, role: 'Creator' | 'Opponent' | null): St
         helper: 'The wager is lined up for final settlement on-chain.',
         nextStepLabel: 'What happens next',
         nextStepDetail: 'The contract can finalize payout from escrow.',
+        summaryLabel: 'Votes match and payout can complete',
+        summaryTone: 'success',
       };
     case 'disputed':
       return {
@@ -132,6 +150,8 @@ function getStateCopy(wager: WagerView, role: 'Creator' | 'Opponent' | null): St
         helper: 'Expect dispute or timeout handling next instead of an automatic payout.',
         nextStepLabel: 'What happens next',
         nextStepDetail: 'Use the fallback path available for this disputed wager.',
+        summaryLabel: 'Conflicting votes require fallback resolution',
+        summaryTone: 'danger',
       };
     default:
       return {
@@ -140,6 +160,8 @@ function getStateCopy(wager: WagerView, role: 'Creator' | 'Opponent' | null): St
         helper: wager.settlementDetail ?? wager.outcomeHint,
         nextStepLabel: 'Next action',
         nextStepDetail: wager.nextStep ?? 'Check the wager actions below.',
+        summaryLabel: state,
+        summaryTone: 'neutral',
       };
   }
 }
@@ -203,6 +225,19 @@ function getProgressValue(steps: TimelineStep[]) {
   const completeCount = steps.filter((step) => step.state === 'complete').length;
   const currentCount = steps.some((step) => step.state === 'current') ? 0.5 : 0;
   return Math.round(((completeCount + currentCount) / steps.length) * 100);
+}
+
+function getSummaryToneClasses(tone: StateCopy['summaryTone']) {
+  switch (tone) {
+    case 'success':
+      return 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100';
+    case 'warning':
+      return 'border-amber-400/20 bg-amber-500/10 text-amber-100';
+    case 'danger':
+      return 'border-orange-400/20 bg-orange-500/10 text-orange-100';
+    default:
+      return 'border-white/10 bg-slate-950/40 text-slate-200';
+  }
 }
 
 export function WagerCard({ wager }: { wager: WagerView }) {
@@ -284,6 +319,11 @@ export function WagerCard({ wager }: { wager: WagerView }) {
         </div>
         <p className="mt-2 text-sm text-slate-300">{stateCopy.helper}</p>
         <p className="mt-2 text-xs text-slate-500">{wager.settlementDetail ?? wager.outcomeHint}</p>
+
+        <div className={`mt-4 rounded-2xl border px-3 py-3 text-sm ${getSummaryToneClasses(stateCopy.summaryTone)}`}>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-current/70">Current settlement state</p>
+          <p className="mt-1 font-medium text-current">{stateCopy.summaryLabel}</p>
+        </div>
 
         <div className="mt-4 overflow-hidden rounded-full bg-slate-900/80">
           <div className="h-2 rounded-full bg-brand transition-all" style={{ width: `${progressValue}%` }} />
