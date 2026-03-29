@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAccount, usePublicClient, useWriteContract } from 'wagmi';
 import { challengeEscrowAbi, contractAddresses, supportedChainId, toUsdcAmount, usdcAbi } from '@/lib/contract';
 import { baseSepoliaTxUrl } from '@/lib/explorer';
 import type { WagerView } from '@/lib/sample-data';
 import { ActionFeedback } from './action-feedback';
+
+type PendingResultChoice = 'creatorWon' | 'opponentWon' | 'tie' | null;
 
 export function WagerActions({ wager }: { wager: WagerView }) {
   const { address, chainId, isConnected } = useAccount();
@@ -14,6 +16,7 @@ export function WagerActions({ wager }: { wager: WagerView }) {
   const [message, setMessage] = useState('');
   const [tone, setTone] = useState<'info' | 'success' | 'error'>('info');
   const [txHash, setTxHash] = useState<string>('');
+  const [pendingResultChoice, setPendingResultChoice] = useState<PendingResultChoice>(null);
 
   const creator = wager.creatorAddress;
   const opponent = wager.opponentAddress;
@@ -56,14 +59,11 @@ export function WagerActions({ wager }: { wager: WagerView }) {
       setTxHash(hash);
       setTone('success');
       setMessage(success);
+      setPendingResultChoice(null);
     } catch (error) {
       setTone('error');
       setMessage(error instanceof Error ? error.message : 'Transaction failed');
     }
-  }
-
-  function confirmResultAction(label: string) {
-    return window.confirm(`Submit \"${label}\" for this wager? This records your result on-chain.`);
   }
 
   if (!creator || !opponent) return null;
@@ -73,6 +73,39 @@ export function WagerActions({ wager }: { wager: WagerView }) {
   }
 
   const hasSubmittedResult = Boolean(wager.myVote && wager.myVote !== 'Waiting');
+  const resultChoiceDetails = useMemo(() => {
+    if (pendingResultChoice === 'tie') {
+      return {
+        title: 'Confirm tie result',
+        explanation: 'This records a tie vote on-chain. If the other side also submits Tie, the wager moves to a refund path instead of paying a winner.',
+        impact: 'This is a meaningful settlement vote and cannot be silently undone.',
+        cta: 'Confirm tie on-chain',
+      };
+    }
+
+    if (pendingResultChoice === 'creatorWon') {
+      const creatorWonLabel = role === 'creator' ? 'you won' : 'the creator won';
+      return {
+        title: 'Confirm winner result',
+        explanation: `This records that ${creatorWonLabel}. If the other side submits the same outcome, the wager can finalize payout from escrow.`,
+        impact: 'If the other side disagrees, the wager will move into dispute handling instead of auto-settling.',
+        cta: 'Confirm winner on-chain',
+      };
+    }
+
+    if (pendingResultChoice === 'opponentWon') {
+      const opponentWonLabel = role === 'opponent' ? 'you won' : 'the opponent won';
+      return {
+        title: 'Confirm winner result',
+        explanation: `This records that ${opponentWonLabel}. If the other side submits the same outcome, the wager can finalize payout from escrow.`,
+        impact: 'If the other side disagrees, the wager will move into dispute handling instead of auto-settling.',
+        cta: 'Confirm winner on-chain',
+      };
+    }
+
+    return null;
+  }, [pendingResultChoice, role]);
+
   let primaryAction: { label: string; onClick: () => void } | null = null;
   let secondaryAction: { label: string; onClick: () => void } | null = null;
   let tertiaryAction: { label: string; onClick: () => void } | null = null;
@@ -106,48 +139,15 @@ export function WagerActions({ wager }: { wager: WagerView }) {
   if (wager.status === 'Accepted' && !hasSubmittedResult) {
     primaryAction = {
       label: 'I won',
-      onClick: () => {
-        if (!confirmResultAction('I won')) return;
-        return runWrite(
-          () => writeContractAsync({
-            address: contractAddresses.escrow!,
-            abi: challengeEscrowAbi,
-            functionName: 'confirmWinner',
-            args: [BigInt(wager.id), role === 'creator' ? creator : opponent],
-          }),
-          'Winner confirmed on-chain.'
-        );
-      },
+      onClick: () => setPendingResultChoice(role === 'creator' ? 'creatorWon' : 'opponentWon'),
     };
     secondaryAction = {
       label: 'I lost',
-      onClick: () => {
-        if (!confirmResultAction('I lost')) return;
-        return runWrite(
-          () => writeContractAsync({
-            address: contractAddresses.escrow!,
-            abi: challengeEscrowAbi,
-            functionName: 'confirmWinner',
-            args: [BigInt(wager.id), role === 'creator' ? opponent : creator],
-          }),
-          'Loss recorded on-chain.'
-        );
-      },
+      onClick: () => setPendingResultChoice(role === 'creator' ? 'opponentWon' : 'creatorWon'),
     };
     tertiaryAction = {
       label: 'Tie',
-      onClick: () => {
-        if (!confirmResultAction('Tie')) return;
-        return runWrite(
-          () => writeContractAsync({
-            address: contractAddresses.escrow!,
-            abi: challengeEscrowAbi,
-            functionName: 'confirmTie',
-            args: [BigInt(wager.id)],
-          }),
-          'Tie recorded on-chain.'
-        );
-      },
+      onClick: () => setPendingResultChoice('tie'),
     };
   }
 
@@ -201,6 +201,70 @@ export function WagerActions({ wager }: { wager: WagerView }) {
       ) : noActionText ? (
         <p className="text-xs text-slate-500">{noActionText}</p>
       ) : null}
+
+      {resultChoiceDetails ? (
+        <div className="rounded-2xl border border-amber-400/25 bg-amber-500/10 p-4 text-sm text-amber-100">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-amber-200/80">Confirm settlement vote</p>
+          <p className="mt-2 font-medium text-white">{resultChoiceDetails.title}</p>
+          <p className="mt-2 text-sm leading-6 text-amber-100">{resultChoiceDetails.explanation}</p>
+          <p className="mt-2 text-xs text-amber-200/90">{resultChoiceDetails.impact}</p>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <button
+              className="button-secondary w-full border-amber-300/30 bg-amber-500/20 text-amber-50 hover:bg-amber-500/30"
+              disabled={isPending}
+              onClick={() => {
+                if (pendingResultChoice === 'tie') {
+                  return runWrite(
+                    () => writeContractAsync({
+                      address: contractAddresses.escrow!,
+                      abi: challengeEscrowAbi,
+                      functionName: 'confirmTie',
+                      args: [BigInt(wager.id)],
+                    }),
+                    'Tie recorded on-chain.'
+                  );
+                }
+
+                if (pendingResultChoice === 'creatorWon') {
+                  return runWrite(
+                    () => writeContractAsync({
+                      address: contractAddresses.escrow!,
+                      abi: challengeEscrowAbi,
+                      functionName: 'confirmWinner',
+                      args: [BigInt(wager.id), creator],
+                    }),
+                    role === 'creator' ? 'Winner confirmed on-chain.' : 'Loss recorded on-chain.'
+                  );
+                }
+
+                if (pendingResultChoice === 'opponentWon') {
+                  return runWrite(
+                    () => writeContractAsync({
+                      address: contractAddresses.escrow!,
+                      abi: challengeEscrowAbi,
+                      functionName: 'confirmWinner',
+                      args: [BigInt(wager.id), opponent],
+                    }),
+                    role === 'opponent' ? 'Winner confirmed on-chain.' : 'Loss recorded on-chain.'
+                  );
+                }
+              }}
+              type="button"
+            >
+              {isPending ? 'Waiting for wallet...' : resultChoiceDetails.cta}
+            </button>
+            <button
+              className="button-secondary w-full"
+              disabled={isPending}
+              onClick={() => setPendingResultChoice(null)}
+              type="button"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {message ? <ActionFeedback tone={tone} message={message} txHash={txHash} txHref={baseSepoliaTxUrl(txHash)} /> : null}
     </div>
   );
