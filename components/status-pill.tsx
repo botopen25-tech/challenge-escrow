@@ -8,6 +8,6 @@ const styles = {
   Disputed: 'bg-orange-500/15 text-orange-200',
 } as const;
 
-export function StatusPill({ status }: { status: keyof typeof styles }) {
-  return <span className={clsx('rounded-full px-3 py-1 text-xs font-semibold', styles[status])}>{status}</span>;
+export function StatusPill({ status, label }: { status: keyof typeof styles; label?: string }) {
+  return <span className={clsx('rounded-full px-3 py-1 text-xs font-semibold', styles[status])}>{label ?? status}</span>;
 }
