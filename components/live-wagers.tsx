@@ -158,8 +158,8 @@ export function LiveWagers() {
   });
 
   if (!contractAddresses.escrow) return <p className="text-sm text-slate-400">Missing escrow contract address in env config.</p>;
-  if (!isConnected) return <p className="text-sm text-slate-400">Connect a wallet to load wagers.</p>;
-  if (chainId !== supportedChainId) return <p className="text-sm text-slate-400">Switch to Base Sepolia to load wagers.</p>;
+  if (!isConnected) return <p className="text-sm text-slate-400">Connect the wallet that created or received a wager to load role-aware actions.</p>;
+  if (chainId !== supportedChainId) return <p className="text-sm text-slate-400">Switch this wallet to Base Sepolia to load wagers and unlock accept / settlement actions.</p>;
   if (isLoading) return <p className="text-sm text-slate-400">Loading wagers...</p>;
 
   const allWagers: WagerView[] = (data ?? []).flatMap((item, index) => {

@@ -22,6 +22,14 @@ type StateCopy = {
   summaryTone: 'neutral' | 'success' | 'warning' | 'danger';
 };
 
+type WalletGuidance = {
+  tone: 'neutral' | 'warning' | 'danger' | 'success';
+  title: string;
+  body: string;
+  roleLabel: string;
+  roleBadge?: string;
+};
+
 function formatSettlementLabel(settlementState?: string, fallback?: string) {
   switch (settlementState) {
     case 'waitingOnOpponent':
@@ -240,6 +248,68 @@ function getSummaryToneClasses(tone: StateCopy['summaryTone']) {
   }
 }
 
+function getWalletGuidance({
+  isConnected,
+  isWrongNetwork,
+  role,
+  creatorLabel,
+  opponentLabel,
+}: {
+  isConnected: boolean;
+  isWrongNetwork: boolean;
+  role: 'Creator' | 'Opponent' | null;
+  creatorLabel: string;
+  opponentLabel: string;
+}): WalletGuidance {
+  if (!isConnected) {
+    return {
+      tone: 'warning',
+      title: 'Connect a participant wallet',
+      body: `Use the creator wallet (${creatorLabel}) or opponent wallet (${opponentLabel}) to unlock wager actions.`,
+      roleLabel: 'Viewer',
+      roleBadge: 'Not connected',
+    };
+  }
+
+  if (isWrongNetwork) {
+    return {
+      tone: 'danger',
+      title: 'Wrong network for this wager',
+      body: 'This wallet is connected, but not on Base Sepolia. Switch networks before accepting, voting, settling, or claiming a refund.',
+      roleLabel: role ?? 'Viewer',
+      roleBadge: 'Wrong network',
+    };
+  }
+
+  if (role === 'Creator') {
+    return {
+      tone: 'success',
+      title: 'You are the creator on this wager',
+      body: `This wallet matches the creator side (${creatorLabel}). You set the challenge terms and can submit a result after the wager is active.`,
+      roleLabel: role,
+      roleBadge: 'Creator wallet',
+    };
+  }
+
+  if (role === 'Opponent') {
+    return {
+      tone: 'success',
+      title: 'You are the opponent on this wager',
+      body: `This wallet matches the opponent side (${opponentLabel}). Accept the wager first, then submit your result when the challenge ends.`,
+      roleLabel: role,
+      roleBadge: 'Opponent wallet',
+    };
+  }
+
+  return {
+    tone: 'warning',
+    title: 'Connected wallet is not part of this wager',
+    body: `Switch to the creator wallet (${creatorLabel}) or opponent wallet (${opponentLabel}) to take action on this challenge.`,
+    roleLabel: 'Viewer',
+    roleBadge: 'Wrong wallet',
+  };
+}
+
 export function WagerCard({ wager }: { wager: WagerView }) {
   const { address, chainId, isConnected } = useAccount();
   const role = !address
@@ -257,15 +327,13 @@ export function WagerCard({ wager }: { wager: WagerView }) {
   const timelineSteps = getTimelineSteps(wager);
   const progressValue = getProgressValue(timelineSteps);
 
-  const roleGuidance = !isConnected
-    ? 'Connect the wallet that created or received this challenge to unlock the right actions.'
-    : isWrongNetwork
-      ? 'This wallet is connected on the wrong network. Switch to Base Sepolia to accept, vote, or claim a refund.'
-      : role === 'Creator'
-        ? 'You are the creator on this wager. You can wait for acceptance, then confirm the outcome once the challenge ends.'
-        : role === 'Opponent'
-          ? 'You are the opponent on this wager. Accept the wager first, then submit your result when the challenge is over.'
-          : 'This connected wallet is not one of the two wager participants. Switch to the creator or opponent wallet to take action.';
+  const walletGuidance = getWalletGuidance({
+    isConnected,
+    isWrongNetwork,
+    role,
+    creatorLabel,
+    opponentLabel,
+  });
 
   return (
     <article className="card space-y-4">
@@ -294,13 +362,19 @@ export function WagerCard({ wager }: { wager: WagerView }) {
       </dl>
 
       <div className="grid grid-cols-1 gap-3 rounded-2xl border border-white/10 bg-slate-950/30 px-3 py-3 text-sm text-slate-300 sm:grid-cols-2">
-        <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Creator wallet</p>
+        <div className={`rounded-2xl border px-3 py-3 ${role === 'Creator' ? 'border-brand/40 bg-brand/10' : 'border-white/10 bg-transparent'}`}>
+          <div className="flex items-center gap-2">
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Creator wallet</p>
+            {role === 'Creator' ? <span className="rounded-full bg-brand/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-brand">You</span> : null}
+          </div>
           <p className="mt-1 font-medium text-white">{creatorLabel}</p>
           <p className="mt-1 text-xs text-slate-400">Started the wager and set the challenge terms.</p>
         </div>
-        <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Opponent wallet</p>
+        <div className={`rounded-2xl border px-3 py-3 ${role === 'Opponent' ? 'border-brand/40 bg-brand/10' : 'border-white/10 bg-transparent'}`}>
+          <div className="flex items-center gap-2">
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Opponent wallet</p>
+            {role === 'Opponent' ? <span className="rounded-full bg-brand/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-brand">You</span> : null}
+          </div>
           <p className="mt-1 font-medium text-white">{opponentLabel}</p>
           <p className="mt-1 text-xs text-slate-400">Needs to accept before funds are locked and settlement can start.</p>
         </div>
@@ -364,17 +438,34 @@ export function WagerCard({ wager }: { wager: WagerView }) {
           })}
         </div>
 
-        <div className={`mt-3 rounded-xl border px-3 py-2 text-xs ${isWrongNetwork ? 'border-amber-500/30 bg-amber-500/10 text-amber-100' : 'border-white/10 bg-slate-950/30 text-slate-300'}`}>
+        <div className={`mt-3 rounded-xl border px-3 py-3 text-xs ${
+          walletGuidance.tone === 'danger'
+            ? 'border-orange-500/30 bg-orange-500/10 text-orange-100'
+            : walletGuidance.tone === 'warning'
+              ? 'border-amber-500/30 bg-amber-500/10 text-amber-100'
+              : walletGuidance.tone === 'success'
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
+                : 'border-white/10 bg-slate-950/30 text-slate-300'
+        }`}>
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium text-white">Wallet role:</span>
-            <span>{role ?? 'Viewer'}</span>
-            {isConnected ? (
-              <span className={`rounded-full px-2 py-1 uppercase tracking-[0.16em] ${isWrongNetwork ? 'bg-amber-500/20 text-amber-100' : 'bg-white/5 text-slate-300'}`}>
-                {isWrongNetwork ? 'Wrong network' : 'Ready on Base Sepolia'}
+            <span>{walletGuidance.roleLabel}</span>
+            {walletGuidance.roleBadge ? (
+              <span className={`rounded-full px-2 py-1 uppercase tracking-[0.16em] ${
+                walletGuidance.tone === 'danger'
+                  ? 'bg-orange-500/20 text-orange-100'
+                  : walletGuidance.tone === 'warning'
+                    ? 'bg-amber-500/20 text-amber-100'
+                    : walletGuidance.tone === 'success'
+                      ? 'bg-emerald-500/20 text-emerald-100'
+                      : 'bg-white/5 text-slate-300'
+              }`}>
+                {walletGuidance.roleBadge}
               </span>
             ) : null}
           </div>
-          <p className="mt-2">{roleGuidance}</p>
+          <p className="mt-2 font-medium text-white">{walletGuidance.title}</p>
+          <p className="mt-1">{walletGuidance.body}</p>
         </div>
         <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-slate-400 sm:grid-cols-3">
           <div><span className="text-slate-500">Your pick:</span> {wager.myVote ?? 'Waiting'}</div>
